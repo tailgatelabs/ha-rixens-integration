@@ -152,27 +152,43 @@ water timer) are not implemented yet
   device is offline)
 - **Heater fault** — Problem sensor, on while the heater is in its error state
   (`heaterstate` 200) or reports an active fault code. Attributes:
-  `active_fault_code`, `stored_fault_codes` (F1–F5, most recent first),
-  `heater_state`
+  `active_fault_code`, `active_fault_p_code`, `active_fault_class`,
+  `stored_fault_codes` (F1–F5, most recent first), `heater_state`
 
 ### Heater Faults
 
 `status.xml` reports faults in `<heater1-faults>`: `AF` is the active fault and
 `F1`–`F5` are the stored faults, with `F1` the most recent. The official docs
-don't describe these fields, so fault names come from the classic numeric
-Eberspächer codes in `faults.py`, using only codes where two public references
-agree. They are unconfirmed by Rixen's
+don't describe these fields. The values are the classic numeric Eberspächer
+fault codes.
+
+`faults.py` takes fault names and error classes from Eberspächer's fault code
+table for the **Hydronic S3 CS** (repair instructions 25.2696.95.2682.0D,
+05.2020). That table lists P-codes only, so each P-code is matched to its
+numeric code using the pairs published by
+[Butler Technik](https://www.butlertechnik.com/eberspacher-fault-codes-for-airtronic-and-espar-hydronic-heaters).
+P-codes with no published numeric code (for example water pump faults
+P000250–P000259) aren't listed yet. The mapping is unconfirmed by Rixen's
 ([#76](https://github.com/tailgatelabs/ha-rixens-integration/issues/76)).
 Unlisted codes show as **Other fault**, and the raw code is always available as
 an attribute. `AF=255` is treated as "no data", not a fault.
 
-- **Active fault** (diagnostic sensor) — Named active fault, with the raw code
-  in the `code` attribute
+Fault attributes:
+
+- `code` — raw numeric code
+- `p_code` — Eberspächer diagnostic code (as shown by EasyScan), e.g. `P00012A`
+- `fault_class` — error class from the table: `service`, `undervoltage`,
+  `overvoltage`, `fuel_supply_or_pump`, `water_circuit_or_pump`,
+  `overheat_heater_locked` or `restricted_operation`
+
+- **Active fault** (diagnostic sensor) — Named active fault, with `code`,
+  `p_code` and `fault_class` attributes
 - **Last fault** (diagnostic sensor) — Named most recent stored fault (F1), with
-  `code` and `stored_fault_codes` attributes
-- **Heater fault** (event) — Fires `fault_detected` with `code` and `fault` when
-  a new active fault appears. A fault already active when Home Assistant starts
-  does not fire; use the Heater fault binary sensor for that.
+  `code`, `p_code`, `fault_class` and `stored_fault_codes` attributes
+- **Heater fault** (event) — Fires `fault_detected` with `code`, `p_code`,
+  `fault_class` and `fault` when a new active fault appears. A fault already
+  active when Home Assistant starts does not fire; use the Heater fault binary
+  sensor for that.
 
 ## Advanced Behavior
 

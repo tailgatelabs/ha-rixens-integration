@@ -8,9 +8,11 @@ import pytest
 
 from custom_components.rixens.api import RixensApi
 from custom_components.rixens.faults import (
+    FAULT_CLASSES,
     FAULT_CODES,
     FAULT_OPTIONS,
     active_fault_code,
+    fault_attributes,
     fault_key,
     is_fault,
     stored_fault_codes,
@@ -24,8 +26,12 @@ from .conftest import SAMPLE_XML_1_208, make_rixens_data
     [
         (0, "no_fault"),
         (10, "overvoltage"),
+        (51, "cold_air_timeout"),
+        (34, "burner_motor_blocked"),
         (55, "flame_cutout"),
+        (71, "water_outlet_sensor_open"),
         (94, "control_box_defective"),
+        (60, "other"),  # air heater sensor, not in the Hydronic S3 CS table
         (123, "other"),
         (255, None),
         (None, None),
@@ -44,8 +50,34 @@ def test_is_fault(code, expected):
 
 
 def test_options_cover_every_code_once():
-    assert set(FAULT_OPTIONS) == {*FAULT_CODES.values(), "other"}
+    assert set(FAULT_OPTIONS) == {info.key for info in FAULT_CODES.values()} | {"other"}
     assert len(FAULT_OPTIONS) == len(set(FAULT_OPTIONS))
+
+
+def test_every_fault_has_p_code_and_known_class():
+    for code, info in FAULT_CODES.items():
+        if code == 0:
+            assert info.p_code is None and info.fault_class is None
+        else:
+            assert info.p_code and info.p_code.startswith("P000"), code
+            assert info.fault_class in FAULT_CLASSES, code
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        (
+            15,
+            {"code": 15, "p_code": "P00011A", "fault_class": "overheat_heater_locked"},
+        ),
+        (11, {"code": 11, "p_code": "P000312/P000313", "fault_class": "undervoltage"}),
+        (6, {"code": 6, "p_code": "P000143", "fault_class": "restricted_operation"}),
+        (123, {"code": 123, "p_code": None, "fault_class": None}),
+        (None, {"code": None, "p_code": None, "fault_class": None}),
+    ],
+)
+def test_fault_attributes(code, expected):
+    assert fault_attributes(code) == expected
 
 
 def test_stored_faults_in_order_and_skip_missing():

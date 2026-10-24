@@ -36,7 +36,13 @@ class TestHeaterFaultEvent:
         with patch.object(entity, "_trigger_event") as trigger:
             _update(entity, mock_coordinator, 48)
         trigger.assert_called_once_with(
-            EVENT_FAULT_DETECTED, {"code": 48, "fault": "metering_pump_open"}
+            EVENT_FAULT_DETECTED,
+            {
+                "code": 48,
+                "p_code": "P000200",
+                "fault_class": "fuel_supply_or_pump",
+                "fault": "metering_pump_open",
+            },
         )
 
     def test_does_not_refire_for_same_fault(self, mock_coordinator):

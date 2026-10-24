@@ -31,7 +31,13 @@ from .api import RixensData
 from .const import CONF_FUEL_DOSE, DEFAULT_FUEL_DOSE, DOMAIN
 from .coordinator import RixensCoordinator
 from .fan import compute_fan_speed
-from .faults import FAULT_OPTIONS, active_fault_code, fault_key, stored_fault_codes
+from .faults import (
+    FAULT_OPTIONS,
+    active_fault_code,
+    fault_attributes,
+    fault_key,
+    stored_fault_codes,
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -188,7 +194,7 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         icon="mdi:alert-circle-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: fault_key(active_fault_code(data)),
-        attributes_fn=lambda data: {"code": active_fault_code(data)},
+        attributes_fn=lambda data: fault_attributes(active_fault_code(data)),
     ),
     RixensSensorEntityDescription(
         key="last_fault",
@@ -199,7 +205,7 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: fault_key(next(iter(stored_fault_codes(data)), None)),
         attributes_fn=lambda data: {
-            "code": next(iter(stored_fault_codes(data)), None),
+            **fault_attributes(next(iter(stored_fault_codes(data)), None)),
             "stored_fault_codes": stored_fault_codes(data),
         },
     ),

@@ -11,7 +11,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import RixensCoordinator
-from .faults import active_fault_code, fault_key, is_fault
+from .faults import active_fault_code, fault_attributes, fault_key, is_fault
 
 EVENT_FAULT_DETECTED = "fault_detected"
 
@@ -53,7 +53,8 @@ class RixensHeaterFaultEvent(CoordinatorEntity[RixensCoordinator], EventEntity):
             code = active_fault_code(self.coordinator.data)
             if is_fault(code) and code != self._last_code:
                 self._trigger_event(
-                    EVENT_FAULT_DETECTED, {"code": code, "fault": fault_key(code)}
+                    EVENT_FAULT_DETECTED,
+                    {**fault_attributes(code), "fault": fault_key(code)},
                 )
             self._last_code = code
         super()._handle_coordinator_update()

@@ -94,20 +94,33 @@ class TestSensorEntity:
             assert sensor.entity_category == EntityCategory.DIAGNOSTIC
 
     @pytest.mark.parametrize(
-        ("af", "expected"),
-        [(0, "no_fault"), (48, "metering_pump_open"), (123, "other"), (255, None)],
+        ("af", "expected", "p_code", "fault_class"),
+        [
+            (0, "no_fault", None, None),
+            (48, "metering_pump_open", "P000200", "fuel_supply_or_pump"),
+            (123, "other", None, None),
+            (255, None, None, None),
+        ],
     )
-    def test_active_fault(self, mock_coordinator, af, expected):
+    def test_active_fault(self, mock_coordinator, af, expected, p_code, fault_class):
         mock_coordinator.data = make_rixens_data(faults={"AF": af})
         sensor = self._make_sensor(mock_coordinator, "active_fault")
         assert sensor.native_value == expected
-        assert sensor.extra_state_attributes == {"code": af}
+        assert sensor.extra_state_attributes == {
+            "code": af,
+            "p_code": p_code,
+            "fault_class": fault_class,
+        }
 
     def test_active_fault_not_reported(self, mock_coordinator):
         mock_coordinator.data = make_rixens_data(faults={})
         sensor = self._make_sensor(mock_coordinator, "active_fault")
         assert sensor.native_value is None
-        assert sensor.extra_state_attributes == {"code": None}
+        assert sensor.extra_state_attributes == {
+            "code": None,
+            "p_code": None,
+            "fault_class": None,
+        }
 
     def test_last_fault_uses_f1(self, mock_coordinator):
         """F1 is the most recent stored fault."""
@@ -118,6 +131,8 @@ class TestSensorEntity:
         assert sensor.native_value == "start_failed"
         assert sensor.extra_state_attributes == {
             "code": 52,
+            "p_code": "P00012A",
+            "fault_class": "fuel_supply_or_pump",
             "stored_fault_codes": [52, 50, 0, 0, 11],
         }
 
@@ -127,6 +142,8 @@ class TestSensorEntity:
         assert sensor.native_value is None
         assert sensor.extra_state_attributes == {
             "code": None,
+            "p_code": None,
+            "fault_class": None,
             "stored_fault_codes": [],
         }
 

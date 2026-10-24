@@ -11,9 +11,10 @@ and this project adheres to
 ### Added
 
 - Heater fault reporting (#76): a Heater fault problem binary sensor, Active
-  fault and Last fault diagnostic sensors with named Eberspächer fault codes,
-  and a Heater fault event that fires when a new fault appears. Fault names are
-  unconfirmed by Rixen's; raw codes are always exposed.
+  fault and Last fault diagnostic sensors, and a Heater fault event that fires
+  when a new fault appears. Fault names, P-codes and error classes come from
+  Eberspächer's Hydronic S3 CS fault table and are unconfirmed by Rixen's; raw
+  codes are always exposed.
 - Comfort Hot tank status sensor: Off, Warming, Ready (122°F) or Max (158°F)
   (#65)
 

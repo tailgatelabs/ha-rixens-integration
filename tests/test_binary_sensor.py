@@ -75,6 +75,8 @@ class TestHeaterFaultSensor:
         sensor = RixensHeaterFaultSensor(mock_coordinator)
         assert sensor.extra_state_attributes == {
             "active_fault_code": 48,
+            "active_fault_p_code": "P000200",
+            "active_fault_class": "fuel_supply_or_pump",
             "stored_fault_codes": [48, 0, 0, 0, 0],
             "heater_state": 20,
         }

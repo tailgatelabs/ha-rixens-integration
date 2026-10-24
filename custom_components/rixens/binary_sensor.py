@@ -20,6 +20,7 @@ from .coordinator import RixensCoordinator
 from .faults import (
     HEATER_STATE_ERROR,
     active_fault_code,
+    fault_attributes,
     is_fault,
     stored_fault_codes,
 )
@@ -91,12 +92,15 @@ class RixensHeaterFaultSensor(CoordinatorEntity[RixensCoordinator], BinarySensor
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return the raw fault codes."""
+        """Return the raw fault codes and the active fault's P-code and class."""
         data = self.coordinator.data
         if not data:
             return {}
+        active = fault_attributes(active_fault_code(data))
         return {
-            "active_fault_code": active_fault_code(data),
+            "active_fault_code": active["code"],
+            "active_fault_p_code": active["p_code"],
+            "active_fault_class": active["fault_class"],
             "stored_fault_codes": stored_fault_codes(data),
             "heater_state": data.heater_state,
         }
