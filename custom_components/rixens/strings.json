@@ -81,6 +81,15 @@
       "heater_state": {
         "name": "Heater state"
       },
+      "glycol_tank": {
+        "name": "Comfort Hot tank",
+        "state": {
+          "off": "Off",
+          "warming": "Warming",
+          "ready": "Ready",
+          "max": "Max"
+        }
+      },
       "firmware_version": {
         "name": "Firmware version"
       },

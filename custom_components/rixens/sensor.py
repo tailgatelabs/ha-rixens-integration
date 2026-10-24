@@ -40,6 +40,15 @@ class RixensSensorEntityDescription(SensorEntityDescription):
     icon_fn: Callable[[float | int | str | None], str | None] | None = None
 
 
+# Comfort Hot tank status, read from glycolstate (see RixensData.glycol_state):
+# 0 = Off, 1 = Warming, 2 = Ready (122°F), 3 = Max (158°F)
+GLYCOL_TANK_STATES: dict[int, str] = {
+    0: "off",
+    1: "warming",
+    2: "ready",
+    3: "max",
+}
+
 SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
     RixensSensorEntityDescription(
         key="current_temperature",
@@ -161,6 +170,14 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         value_fn=lambda data: data.heater_state,
     ),
     RixensSensorEntityDescription(
+        key="glycol_tank",
+        translation_key="glycol_tank",
+        device_class=SensorDeviceClass.ENUM,
+        options=list(GLYCOL_TANK_STATES.values()),
+        icon="mdi:water-boiler",
+        value_fn=lambda data: GLYCOL_TANK_STATES.get(data.glycol_state),
+    ),
+    RixensSensorEntityDescription(
         key="firmware_version",
         translation_key="firmware_version",
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -219,7 +236,7 @@ class RixensSensor(CoordinatorEntity[RixensCoordinator], SensorEntity):
         """Return the icon for the sensor."""
         if self.entity_description.icon_fn is not None:
             return self.entity_description.icon_fn(self.native_value)
-        return None
+        return super().icon
 
     @property
     def native_value(self) -> float | int | str | None:

@@ -102,6 +102,13 @@ water timer) are not implemented yet
 - **Atmospheric Pressure** — Barometric pressure in hPa (used for altitude
   compensation)
 
+#### Comfort Hot
+
+- **Comfort Hot tank** — Tank status (`glycolstate`): Off, Warming, Ready
+  (122°F) or Max (158°F). Unknown for any other value. The official docs give
+  this 0–3 scale to `settings.glycol`, but live data matches `glycolstate` (see
+  [#72](https://github.com/tailgatelabs/ha-rixens-integration/issues/72)).
+
 #### Heater Diagnostics
 
 - **Battery Voltage** — RV battery voltage monitoring
