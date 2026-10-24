@@ -33,7 +33,9 @@ and this project adheres to
   is connected
 - `settings.glycol` is parsed as an integer instead of a boolean
 - Heater runtime is reported in minutes instead of seconds (#72). Existing
-  installs will see the value jump to the correct, larger number.
+  installs will see the value jump to the correct, larger number. New installs
+  display it in hours; existing installs keep their current display unit, which
+  can be changed in the entity's settings.
 
 ## [0.1.0] - 2026-01-16
 

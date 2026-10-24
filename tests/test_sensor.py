@@ -168,6 +168,12 @@ class TestSensorEntity:
         sensor = self._make_sensor(mock_coordinator, "heater_runtime")
         assert sensor.native_unit_of_measurement == UnitOfTime.MINUTES
 
+    def test_runtime_displays_in_hours(self, mock_coordinator):
+        """New installs show runtime in hours by default."""
+        sensor = self._make_sensor(mock_coordinator, "heater_runtime")
+        assert sensor.suggested_unit_of_measurement == UnitOfTime.HOURS
+        assert sensor.suggested_display_precision == 1
+
     def test_native_value_firmware(self, mock_coordinator):
         sensor = self._make_sensor(mock_coordinator, "firmware_version")
         assert sensor.native_value == "HW2-1.205 2025_11_20 RIXENS"
