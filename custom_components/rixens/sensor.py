@@ -123,6 +123,9 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         key="heater_runtime",
         translation_key="heater_runtime",
         native_unit_of_measurement=UnitOfTime.MINUTES,
+        # Lifetime runtime runs to thousands of hours; minutes are hard to read
+        suggested_unit_of_measurement=UnitOfTime.HOURS,
+        suggested_display_precision=1,
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.TOTAL_INCREASING,
         entity_category=EntityCategory.DIAGNOSTIC,
