@@ -104,7 +104,7 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
     RixensSensorEntityDescription(
         key="heater_runtime",
         translation_key="heater_runtime",
-        native_unit_of_measurement=UnitOfTime.SECONDS,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.TOTAL_INCREASING,
         entity_category=EntityCategory.DIAGNOSTIC,

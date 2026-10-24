@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from homeassistant.const import UnitOfTime
 
 from custom_components.rixens.const import CONF_FUEL_DOSE, DEFAULT_FUEL_DOSE
 from custom_components.rixens.sensor import (
@@ -77,6 +78,11 @@ class TestSensorEntity:
     def test_native_value_runtime(self, mock_coordinator):
         sensor = self._make_sensor(mock_coordinator, "heater_runtime")
         assert sensor.native_value == 114236
+
+    def test_runtime_unit_is_minutes(self, mock_coordinator):
+        """heater1.runtime counts minutes (verified against live data, #72)."""
+        sensor = self._make_sensor(mock_coordinator, "heater_runtime")
+        assert sensor.native_unit_of_measurement == UnitOfTime.MINUTES
 
     def test_native_value_firmware(self, mock_coordinator):
         sensor = self._make_sensor(mock_coordinator, "firmware_version")

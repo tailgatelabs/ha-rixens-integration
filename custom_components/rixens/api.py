@@ -63,7 +63,8 @@ class RixensHeaterData:
 
     heat_on: bool  # Furnace commanded state (0 = Off, 1 = On)
     battery_voltage: float  # Battery voltage reading (scale undocumented, see #72)
-    # Docs: "ECU lifetime operating hours"; observed data suggests seconds, see #72
+    # ECU lifetime operating time in minutes. Docs say "hours", but live data
+    # (+3 per ~155 s of uptime while running) shows minutes, see #72
     runtime: int
     pid_speed: int  # PID controller speed/effort
     flame_temp: float  # Furnace flame temperature. Note: Divide by 100 for °C
