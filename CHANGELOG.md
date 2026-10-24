@@ -23,6 +23,8 @@ and this project adheres to
   is connected
 - Comfort Hot tank status (`glycol`) is parsed as its 0–3 value instead of a
   boolean
+- Heater runtime is reported in minutes instead of seconds (#72). Existing
+  installs will see the value jump to the correct, larger number.
 
 ## [0.1.0] - 2026-01-16
 

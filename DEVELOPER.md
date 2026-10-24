@@ -108,7 +108,7 @@ water timer) are not implemented yet
 - **Flame Temperature** — Burner flame temperature
 - **Inlet Temperature** — Heater inlet coolant temperature
 - **Outlet Temperature** — Heater outlet coolant temperature
-- **Heater Runtime** — Total heater operating time in seconds
+- **Heater Runtime** — Total heater (ECU) operating time, in minutes
 - **System Uptime** — Device uptime since last restart
 
 #### Performance
