@@ -12,8 +12,15 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util.percentage import percentage_to_ordered_list_item
 
-from .api import RixensData
-from .const import DEVICE_FAN_AUTO, DEVICE_FAN_OFF, DOMAIN, FAN_SPEED_MAX, FAN_SPEED_MIN
+from .api import Command, RixensData
+from .const import (
+    DEVICE_FAN_AUTO,
+    DEVICE_FAN_OFF,
+    DOMAIN,
+    FAN_SPEED_AUTO,
+    FAN_SPEED_MAX,
+    FAN_SPEED_MIN,
+)
 from .coordinator import RixensCoordinator
 
 ORDERED_NAMED_FAN_SPEEDS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
@@ -138,21 +145,21 @@ class RixensFan(CoordinatorEntity[RixensCoordinator], FanEntity):
         **kwargs: Any,
     ) -> None:
         """Turn on the fan."""
-        await self.coordinator.api.set_fan(True)
+        await self.coordinator.api.send_command(Command.FAN_STATE, True)
 
         if preset_mode == PRESET_MODE_AUTO:
-            await self.coordinator.api.set_fan_speed(999)
+            await self.coordinator.api.send_command(Command.FAN_SPEED, FAN_SPEED_AUTO)
         elif percentage is not None:
             speed = percentage_to_ordered_list_item(
                 ORDERED_NAMED_FAN_SPEEDS, percentage
             )
-            await self.coordinator.api.set_fan_speed(speed)
+            await self.coordinator.api.send_command(Command.FAN_SPEED, speed)
 
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the fan."""
-        await self.coordinator.api.set_fan(False)
+        await self.coordinator.api.send_command(Command.FAN_STATE, False)
         await self.coordinator.async_request_refresh()
 
     async def async_set_percentage(self, percentage: int) -> None:
@@ -162,13 +169,13 @@ class RixensFan(CoordinatorEntity[RixensCoordinator], FanEntity):
             return
 
         speed = percentage_to_ordered_list_item(ORDERED_NAMED_FAN_SPEEDS, percentage)
-        await self.coordinator.api.set_fan(True)
-        await self.coordinator.api.set_fan_speed(speed)
+        await self.coordinator.api.send_command(Command.FAN_STATE, True)
+        await self.coordinator.api.send_command(Command.FAN_SPEED, speed)
         await self.coordinator.async_request_refresh()
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set the preset mode of the fan."""
         if preset_mode == PRESET_MODE_AUTO:
-            await self.coordinator.api.set_fan(True)
-            await self.coordinator.api.set_fan_speed(999)
+            await self.coordinator.api.send_command(Command.FAN_STATE, True)
+            await self.coordinator.api.send_command(Command.FAN_SPEED, FAN_SPEED_AUTO)
             await self.coordinator.async_request_refresh()

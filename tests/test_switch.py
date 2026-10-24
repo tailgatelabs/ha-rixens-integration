@@ -6,13 +6,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from custom_components.rixens.api import Command
 from custom_components.rixens.switch import (
     SWITCH_DESCRIPTIONS,
     RixensSwitch,
     RixensSwitchEntityDescription,
 )
 
-from .conftest import make_rixens_data
+from .conftest import make_rixens_data, sent_commands
 
 
 class TestSwitchDescriptions:
@@ -21,8 +22,13 @@ class TestSwitchDescriptions:
     def test_all_descriptions_have_required_fns(self):
         for desc in SWITCH_DESCRIPTIONS:
             assert callable(desc.value_fn)
-            assert callable(desc.turn_on_fn)
-            assert callable(desc.turn_off_fn)
+            assert isinstance(desc.command, Command)
+
+    def test_hot_water_keeps_continuous_heat_key(self):
+        """The hot water switch keeps its original key so unique_id is stable."""
+        desc = next(d for d in SWITCH_DESCRIPTIONS if d.translation_key == "hot_water")
+        assert desc.key == "continuous_heat"
+        assert desc.command == Command.HOT_WATER
 
     def test_description_keys_unique(self):
         keys = [d.key for d in SWITCH_DESCRIPTIONS]
@@ -55,13 +61,13 @@ class TestSwitchEntity:
     async def test_furnace_turn_on(self, mock_coordinator):
         switch = self._make_switch(mock_coordinator, "furnace")
         await switch.async_turn_on()
-        mock_coordinator.api.set_furnace.assert_awaited_once_with(True)
+        assert sent_commands(mock_coordinator.api) == [(Command.FURNACE, True)]
         mock_coordinator.async_request_refresh.assert_awaited()
 
     async def test_furnace_turn_off(self, mock_coordinator):
         switch = self._make_switch(mock_coordinator, "furnace")
         await switch.async_turn_off()
-        mock_coordinator.api.set_furnace.assert_awaited_once_with(False)
+        assert sent_commands(mock_coordinator.api) == [(Command.FURNACE, False)]
 
     # --- Floor heat ---
 
@@ -78,12 +84,12 @@ class TestSwitchEntity:
     async def test_floor_heat_turn_on(self, mock_coordinator):
         switch = self._make_switch(mock_coordinator, "floor_heat")
         await switch.async_turn_on()
-        mock_coordinator.api.set_floor_heat.assert_awaited_once_with(True)
+        assert sent_commands(mock_coordinator.api) == [(Command.HEATED_FLOORS, True)]
 
     async def test_floor_heat_turn_off(self, mock_coordinator):
         switch = self._make_switch(mock_coordinator, "floor_heat")
         await switch.async_turn_off()
-        mock_coordinator.api.set_floor_heat.assert_awaited_once_with(False)
+        assert sent_commands(mock_coordinator.api) == [(Command.HEATED_FLOORS, False)]
 
     # --- Electric heat ---
 
@@ -100,12 +106,12 @@ class TestSwitchEntity:
     async def test_electric_heat_turn_on(self, mock_coordinator):
         switch = self._make_switch(mock_coordinator, "electric_heat")
         await switch.async_turn_on()
-        mock_coordinator.api.set_electric_heat.assert_awaited_once_with(True)
+        assert sent_commands(mock_coordinator.api) == [(Command.ELECTRIC_HEAT, True)]
 
     async def test_electric_heat_turn_off(self, mock_coordinator):
         switch = self._make_switch(mock_coordinator, "electric_heat")
         await switch.async_turn_off()
-        mock_coordinator.api.set_electric_heat.assert_awaited_once_with(False)
+        assert sent_commands(mock_coordinator.api) == [(Command.ELECTRIC_HEAT, False)]
 
     # --- Continuous heat ---
 
@@ -122,12 +128,12 @@ class TestSwitchEntity:
     async def test_continuous_heat_turn_on(self, mock_coordinator):
         switch = self._make_switch(mock_coordinator, "continuous_heat")
         await switch.async_turn_on()
-        mock_coordinator.api.set_continuous_heat.assert_awaited_once_with(True)
+        assert sent_commands(mock_coordinator.api) == [(Command.HOT_WATER, True)]
 
     async def test_continuous_heat_turn_off(self, mock_coordinator):
         switch = self._make_switch(mock_coordinator, "continuous_heat")
         await switch.async_turn_off()
-        mock_coordinator.api.set_continuous_heat.assert_awaited_once_with(False)
+        assert sent_commands(mock_coordinator.api) == [(Command.HOT_WATER, False)]
 
     # --- No data ---
 

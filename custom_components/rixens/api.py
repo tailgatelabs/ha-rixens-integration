@@ -1,13 +1,26 @@
-"""API client for Rixens devices."""
+"""API client for Rixens devices.
+
+Implements the Rixen's MCS Local API:
+https://documenter.getpostman.com/view/55318949/2sBXwnsBuf
+
+"The controller is state-owned. Command endpoints submit intent, but actual
+system state must be verified by reading status.xml." Command responses are
+therefore ignored and the coordinator refreshes from status.xml instead.
+"""
 
 from __future__ import annotations
 
 import asyncio
-import logging
 from dataclasses import dataclass
+from enum import IntEnum
+import logging
+import math
+import re
 from xml.etree import ElementTree
 
 import aiohttp
+
+from .const import DEVICE_FAN_AUTO, FAN_SPEED_AUTO
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -15,69 +28,104 @@ DEFAULT_TIMEOUT = 10
 MAX_RETRIES = 3
 RETRY_DELAY = 1  # seconds
 
+# Raw values the device reports when no cabin sensor is connected
+NO_SENSOR_TEMP = -9990
+NO_SENSOR_HUMIDITY = -999
+
+# The device does not escape "&" in strings (e.g. <infra_ssid>R&DRouter</infra_ssid>),
+# which makes the XML invalid. Matches any "&" that does not start an entity.
+_BARE_AMPERSAND = re.compile(r"&(?!(?:[A-Za-z]+|#[0-9]+|#x[0-9A-Fa-f]+);)")
+
+
+class Command(IntEnum):
+    """Command IDs for GET /interface.cgi?act=<id>&val=<int>.
+
+    "All values must be base-10 integers. Do not send floats, decimals, or
+    string booleans."
+    """
+
+    TARGET_TEMPERATURE = 1  # Target temperature (tenths °C)
+    FAN_SPEED = 2  # Fan speed (0-100, 999 = Auto)
+    ENGINE_ADD_HEAT = 3  # Engine add heat
+    ELECTRIC_HEAT = 4  # Electric heat
+    FURNACE = 5  # Furnace
+    HOT_WATER = 6  # Hot water
+    ENGINE_PREHEAT = 7  # Engine pre-heat
+    FAN_STATE = 8  # Fan state
+    THERMOSTAT_STATE = 9  # Thermostat state
+    HEATED_FLOORS = 10  # Heated floors
+    AUX = 11  # Aux
+
 
 @dataclass
 class RixensHeaterData:
-    """Heater-specific data from the Rixens device."""
+    """Heater-specific data from the <heater1> element."""
 
-    heat_on: bool
-    battery_voltage: float
+    heat_on: bool  # Furnace commanded state (0 = Off, 1 = On)
+    battery_voltage: float  # Battery voltage reading (scale undocumented, see #72)
+    # Docs: "ECU lifetime operating hours"; observed data suggests seconds, see #72
     runtime: int
-    pid_speed: int
-    flame_temp: float
-    inlet_temp: float
-    outlet_temp: float
-    atmospheric_pressure: float  # Atmospheric pressure in hPa
-    dosing_pump: float  # Frequency in Hz
-    burner_motor: int
-    heater_state: int
-    glow_pin: int
+    pid_speed: int  # PID controller speed/effort
+    flame_temp: float  # Furnace flame temperature. Note: Divide by 100 for °C
+    inlet_temp: float  # Glycol inlet temperature. Note: Divide by 100 for °C
+    outlet_temp: float  # Glycol outlet temperature. Note: Divide by 100 for °C
+    # Docs: "Altitude reading from mbed"; values are atmospheric pressure in hPa, see #72
+    atmospheric_pressure: float
+    dosing_pump: float  # Dosing pump (Hz); raw value is divided by 10, see #72
+    burner_motor: int  # Burner motor speed
+    heater_state: int  # Eberspacher defined state (0-30, 200 error state)
+    glow_pin: int  # Glow pin (percent)
+    # Furnace in preheat mode (This is an Eberspacher feature, not to be
+    # confused with Rixen Preheat Engine)
     preheat: int
     faults: dict[str, int]
 
 
 @dataclass
 class RixensSettings:
-    """Settings data from the Rixens device."""
+    """Settings data from the <settings> element."""
 
-    setpoint: float  # Temperature in Celsius
-    fan_speed: str
-    pump_state: bool
-    fan_state: bool
+    setpoint: float  # Target cabin temperature. Note: Divide by 10 for °C
+    fan_speed: str  # Current fan speed percentage 0-100, or DEVICE_FAN_AUTO
+    pump_state: bool  # Circulation pump operational state (0 = Off, 1 = On)
+    fan_state: bool  # Air handler fan operational state (0 = Off, 1 = On)
+    # "<x> button showing in Rixen web portal (0 = Off, 1 = On)"
     floor_enable: bool
     electric_enable: bool
     engine_enable: bool
     preheat_enable: bool
     aux_enable: bool
-    fan_enabled: bool
-    therm_enabled: bool
-    glycol: bool
-    # Heat source selection fields (0=off, 2=on)
-    heatsources: int  # Bitmask of active heat sources
-    aux_src: int  # Auxiliary heat source
-    floor_src: int  # Floor heat source
-    furnace_src: int  # Furnace heat source
-    electric_src: int  # Electric heat source
-    engine_src: int  # Engine heat source
-    cnst_heat: int  # Continuous heat (0=off, non-zero=on)
+    fan_enabled: bool  # Air handler fan toggle state (0 = Off, 1 = On)
+    therm_enabled: bool  # Thermostat toggle state (0 = Off, 1 = On)
+    # Comfort Hot tank status: 0 = Off, 1 = Warming, 2 = Ready (122°F), 3 = Max (158°F)
+    glycol: int
+    heatsources: int  # Bitmask: furnace = 4, electric = 2, engine = 1
+    # Hardware state of each heat source (0 = Off, 1 = ready, 2 = active)
+    aux_src: int
+    floor_src: int
+    furnace_src: int
+    electric_src: int
+    engine_src: int
+    cnst_heat: int  # Hot Water mode state (0 = Off, 1 = On)
 
 
 @dataclass
 class RixensData:
-    """Data from the Rixens device."""
+    """Data from the root of status.xml."""
 
-    version: str
-    heat_version: str
-    mode: int
-    uptime: int
-    system_heat: bool
-    heater_state: int
-    zone2_state: int
-    zone3_state: int
-    engine_state: int
-    glycol_state: int
-    current_temp: float  # Temperature in Celsius
-    current_humidity: float  # Humidity in percent
+    version: str  # Hardware and firmware version string
+    heat_version: str  # Heating logic version string
+    uptime: int  # Controller awake time in seconds (Resets on power cycle)
+    system_heat: bool  # Overall system heat state (0 = Off, 1 = On)
+    heater_state: int  # Eberspacher defined state (0-30, 200 error state)
+    zone2_state: int  # State of zone 2
+    zone3_state: int  # State of zone 3
+    engine_state: int  # Engine add heat enabled (0 = Off, 1 = On)
+    glycol_state: int  # Glycol tank up to temp (0 = No, 1 = Yes)
+    # Current cabin temperature in °C, None when no sensor is connected
+    current_temp: float | None
+    # Current cabin humidity in %, None when no sensor is connected
+    current_humidity: float | None
     heater: RixensHeaterData
     settings: RixensSettings
 
@@ -96,20 +144,14 @@ class RixensApi:
     def __init__(
         self,
         host: str,
+        session: aiohttp.ClientSession,
         port: int = 80,
-        session: aiohttp.ClientSession | None = None,
     ) -> None:
         """Initialize the API client."""
         self._host = host
         self._port = port
         self._session = session
         self._base_url = f"http://{host}:{port}" if port != 80 else f"http://{host}"
-
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create an aiohttp session."""
-        if self._session is None:
-            self._session = aiohttp.ClientSession()
-        return self._session
 
     async def _request(self, path: str, retry: bool = True) -> str:
         """Make a request to the device with retry logic.
@@ -124,16 +166,13 @@ class RixensApi:
         Raises:
             RixensConnectionError: If all retries fail
         """
-        session = await self._get_session()
         url = f"{self._base_url}{path}"
-        last_error = None
-
         retries = MAX_RETRIES if retry else 1
 
         for attempt in range(retries):
             try:
                 async with asyncio.timeout(DEFAULT_TIMEOUT):
-                    async with session.get(url) as response:
+                    async with self._session.get(url) as response:
                         response.raise_for_status()
                         if attempt > 0:
                             _LOGGER.info(
@@ -142,47 +181,30 @@ class RixensApi:
                                 attempt,
                             )
                         return await response.text()
-            except asyncio.TimeoutError as err:
-                last_error = err
-                error_msg = f"Timeout connecting to {url}"
-                if attempt < retries - 1:
-                    _LOGGER.warning(
-                        "%s (attempt %d/%d), retrying in %ds...",
-                        error_msg,
-                        attempt + 1,
-                        retries,
-                        RETRY_DELAY * (attempt + 1),
-                    )
-                    await asyncio.sleep(
-                        RETRY_DELAY * (attempt + 1)
-                    )  # Exponential backoff
+            except (TimeoutError, aiohttp.ClientError) as err:
+                if isinstance(err, TimeoutError):
+                    error_msg = f"Timeout connecting to {url}"
                 else:
-                    _LOGGER.error("%s after %d attempts", error_msg, retries)
-            except aiohttp.ClientError as err:
-                last_error = err
-                error_msg = f"Error connecting to {url}: {err}"
-                if attempt < retries - 1:
-                    _LOGGER.warning(
-                        "%s (attempt %d/%d), retrying in %ds...",
-                        error_msg,
-                        attempt + 1,
-                        retries,
-                        RETRY_DELAY * (attempt + 1),
-                    )
-                    await asyncio.sleep(
-                        RETRY_DELAY * (attempt + 1)
-                    )  # Exponential backoff
-                else:
-                    _LOGGER.error("%s after %d attempts", error_msg, retries)
+                    error_msg = f"Error connecting to {url}: {err}"
 
-        # All retries failed
-        if isinstance(last_error, asyncio.TimeoutError):
-            raise RixensConnectionError(
-                f"Timeout connecting to {url} after {retries} attempts"
-            ) from last_error
-        raise RixensConnectionError(
-            f"Error connecting to {url} after {retries} attempts: {last_error}"
-        ) from last_error
+                if attempt < retries - 1:
+                    delay = RETRY_DELAY * (attempt + 1)
+                    _LOGGER.warning(
+                        "%s (attempt %d/%d), retrying in %ds...",
+                        error_msg,
+                        attempt + 1,
+                        retries,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+
+                _LOGGER.error("%s after %d attempts", error_msg, retries)
+                raise RixensConnectionError(
+                    f"{error_msg} after {retries} attempts"
+                ) from err
+
+        raise AssertionError("unreachable")  # pragma: no cover
 
     async def test_connection(self) -> bool:
         """Test the connection to the device."""
@@ -193,16 +215,24 @@ class RixensApi:
             return False
 
     async def get_status(self) -> RixensData:
-        """Get the current status from the device."""
+        """Get the current status from the device (GET /status.xml)."""
         response = await self._request("/status.xml")
         return self._parse_status(response)
 
     def _parse_status(self, xml_text: str) -> RixensData:
-        """Parse the status XML response."""
+        """Parse the status XML response.
+
+        The XML includes Wi-Fi credentials (key, infra_pass); never log it.
+        """
         try:
-            root = ElementTree.fromstring(xml_text)
+            root = ElementTree.fromstring(_BARE_AMPERSAND.sub("&amp;", xml_text))
         except ElementTree.ParseError as err:
             raise RixensApiError(f"Failed to parse status XML: {err}") from err
+
+        def find(tag: str) -> ElementTree.Element:
+            # A missing section parses as empty, so every field gets its default
+            elem = root.find(tag)
+            return elem if elem is not None else ElementTree.Element(tag)
 
         def get_text(parent: ElementTree.Element, tag: str, default: str = "0") -> str:
             elem = parent.find(tag)
@@ -222,127 +252,68 @@ class RixensApi:
             except ValueError:
                 return default
 
-        def get_bool(
-            parent: ElementTree.Element, tag: str, default: bool = False
-        ) -> bool:
-            return get_int(parent, tag, 1 if default else 0) == 1
+        def get_bool(parent: ElementTree.Element, tag: str) -> bool:
+            return get_int(parent, tag) == 1
 
-        # Parse heater1 data
-        # Note: Most temperatures from API are in tenths of a degree Celsius
-        # Exception: flame_temp is in hundredths of a degree Celsius
-        heater1 = root.find("heater1")
+        heater1 = find("heater1")
         heater_data = RixensHeaterData(
-            heat_on=get_bool(heater1, "heaton") if heater1 is not None else False,
-            battery_voltage=get_int(heater1, "battv") / 10.0
-            if heater1 is not None
-            else 0.0,
-            runtime=get_int(heater1, "runtime") if heater1 is not None else 0,
-            pid_speed=get_int(heater1, "pidspeed") if heater1 is not None else 0,
-            flame_temp=get_int(heater1, "flametemp") / 100.0
-            if heater1 is not None
-            else 0.0,
-            inlet_temp=get_int(heater1, "inlettemp") / 100.0
-            if heater1 is not None
-            else 0.0,
-            outlet_temp=get_int(heater1, "outlettemp") / 100.0
-            if heater1 is not None
-            else 0.0,
-            atmospheric_pressure=get_float(heater1, "altitude")
-            if heater1 is not None
-            else 0.0,  # XML field "altitude" is actually pressure in hPa
-            dosing_pump=get_int(heater1, "dosingpump") / 10.0
-            if heater1 is not None
-            else 0.0,
-            burner_motor=get_int(heater1, "burnermotor") if heater1 is not None else 0,
-            heater_state=get_int(heater1, "heaterstate") if heater1 is not None else 0,
-            glow_pin=get_int(heater1, "glowpin") if heater1 is not None else 0,
-            preheat=get_int(heater1, "preheat") if heater1 is not None else 0,
+            heat_on=get_bool(heater1, "heaton"),
+            battery_voltage=get_int(heater1, "battv") / 10.0,
+            runtime=get_int(heater1, "runtime"),
+            pid_speed=get_int(heater1, "pidspeed"),
+            flame_temp=get_int(heater1, "flametemp") / 100.0,
+            inlet_temp=get_int(heater1, "inlettemp") / 100.0,
+            outlet_temp=get_int(heater1, "outlettemp") / 100.0,
+            atmospheric_pressure=get_float(heater1, "altitude"),
+            dosing_pump=get_int(heater1, "dosingpump") / 10.0,
+            burner_motor=get_int(heater1, "burnermotor"),
+            heater_state=get_int(heater1, "heaterstate"),
+            glow_pin=get_int(heater1, "glowpin"),
+            preheat=get_int(heater1, "preheat"),
             faults={},
         )
 
-        # Parse faults
-        faults_elem = root.find("heater1-faults")
-        if faults_elem is not None:
-            for fault in faults_elem.findall("fault"):
-                name = get_text(fault, "name", "")
-                value = get_int(fault, "value")
-                if name:
-                    heater_data.faults[name] = value
+        for fault in find("heater1-faults").findall("fault"):
+            name = get_text(fault, "name", "")
+            if name:
+                heater_data.faults[name] = get_int(fault, "value")
 
-        # Parse settings
-        # Note: setpoint is also in tenths of a degree Celsius
-        settings_elem = root.find("settings")
-        fan_speed_text = (
-            get_text(settings_elem, "fanspeed", "Auto")
-            if settings_elem is not None
-            else "Auto"
-        )
-        raw_setpoint = (
-            get_int(settings_elem, "setpoint", 200)
-            if settings_elem is not None
-            else 200
-        )
+        settings_elem = find("settings")
+        fan_speed = get_text(settings_elem, "fanspeed", DEVICE_FAN_AUTO)
+        # Firmware 1.205 reports "Auto"; the docs specify 999 = Auto
+        if fan_speed == str(FAN_SPEED_AUTO):
+            fan_speed = DEVICE_FAN_AUTO
+
         settings = RixensSettings(
-            setpoint=raw_setpoint / 10.0,
-            fan_speed=fan_speed_text,
-            pump_state=get_bool(settings_elem, "pumpstate")
-            if settings_elem is not None
-            else False,
-            fan_state=get_bool(settings_elem, "fanstate")
-            if settings_elem is not None
-            else False,
-            floor_enable=get_bool(settings_elem, "floorenable")
-            if settings_elem is not None
-            else False,
-            electric_enable=get_bool(settings_elem, "electricenable")
-            if settings_elem is not None
-            else False,
-            engine_enable=get_bool(settings_elem, "engineenable")
-            if settings_elem is not None
-            else False,
-            preheat_enable=get_bool(settings_elem, "preheatenable")
-            if settings_elem is not None
-            else False,
-            aux_enable=get_bool(settings_elem, "auxenable")
-            if settings_elem is not None
-            else False,
-            fan_enabled=get_bool(settings_elem, "fanenabled")
-            if settings_elem is not None
-            else False,
-            therm_enabled=get_bool(settings_elem, "thermenabled")
-            if settings_elem is not None
-            else False,
-            glycol=get_bool(settings_elem, "glycol")
-            if settings_elem is not None
-            else False,
-            # Parse heat source selection fields
-            heatsources=get_int(settings_elem, "heatsources")
-            if settings_elem is not None
-            else 0,
-            aux_src=get_int(settings_elem, "auxsrc")
-            if settings_elem is not None
-            else 0,
-            floor_src=get_int(settings_elem, "floorsrc")
-            if settings_elem is not None
-            else 0,
-            furnace_src=get_int(settings_elem, "furnacesrc")
-            if settings_elem is not None
-            else 0,
-            electric_src=get_int(settings_elem, "electricsrc")
-            if settings_elem is not None
-            else 0,
-            engine_src=get_int(settings_elem, "enginesrc")
-            if settings_elem is not None
-            else 0,
-            cnst_heat=get_int(settings_elem, "cnstheat")
-            if settings_elem is not None
-            else 0,
+            setpoint=get_int(settings_elem, "setpoint", 200) / 10.0,
+            fan_speed=fan_speed,
+            pump_state=get_bool(settings_elem, "pumpstate"),
+            fan_state=get_bool(settings_elem, "fanstate"),
+            floor_enable=get_bool(settings_elem, "floorenable"),
+            electric_enable=get_bool(settings_elem, "electricenable"),
+            engine_enable=get_bool(settings_elem, "engineenable"),
+            preheat_enable=get_bool(settings_elem, "preheatenable"),
+            aux_enable=get_bool(settings_elem, "auxenable"),
+            fan_enabled=get_bool(settings_elem, "fanenabled"),
+            therm_enabled=get_bool(settings_elem, "thermenabled"),
+            glycol=get_int(settings_elem, "glycol"),
+            heatsources=get_int(settings_elem, "heatsources"),
+            aux_src=get_int(settings_elem, "auxsrc"),
+            floor_src=get_int(settings_elem, "floorsrc"),
+            furnace_src=get_int(settings_elem, "furnacesrc"),
+            electric_src=get_int(settings_elem, "electricsrc"),
+            engine_src=get_int(settings_elem, "enginesrc"),
+            cnst_heat=get_int(settings_elem, "cnstheat"),
         )
+
+        raw_temp = get_int(root, "currenttemp")
+        # Docs field table says "percentage", but the overview and real data
+        # are tenths %RH, see #72
+        raw_humidity = get_int(root, "currenthumidity")
 
         return RixensData(
             version=get_text(root, "version", "Unknown"),
             heat_version=get_text(root, "heatversion", "Unknown"),
-            mode=get_int(root, "mode"),
             uptime=get_int(root, "uptime"),
             system_heat=get_bool(root, "systemheat"),
             heater_state=get_int(root, "heaterstate"),
@@ -350,45 +321,27 @@ class RixensApi:
             zone3_state=get_int(root, "zone3state"),
             engine_state=get_int(root, "enginestate"),
             glycol_state=get_int(root, "glycolstate"),
-            current_temp=get_int(root, "currenttemp") / 10.0,
-            current_humidity=get_int(root, "currenthumidity") / 10.0,
+            current_temp=None if raw_temp == NO_SENSOR_TEMP else raw_temp / 10.0,
+            current_humidity=None
+            if raw_humidity == NO_SENSOR_HUMIDITY
+            else raw_humidity / 10.0,
             heater=heater_data,
             settings=settings,
         )
 
-    # Control methods
+    async def send_command(self, command: Command, value: int) -> None:
+        """Send a command (GET /interface.cgi?act=<id>&val=<int>).
+
+        Booleans are sent as 0/1.
+        """
+        await self._request(f"/interface.cgi?act={int(command)}&val={int(value)}")
+
     async def set_temperature(self, temperature: float) -> None:
-        """Set the target temperature in Celsius (converted to tenths for API)."""
-        # API expects temperature in tenths of a degree Celsius
-        raw_temp = int(temperature * 10)
-        await self._request(f"/interface.cgi?act=1&val={raw_temp}")
+        """Set the target temperature in Celsius.
 
-    async def set_fan_speed(self, speed: int) -> None:
-        """Set the fan speed (10-100, or 999 for auto)."""
-        await self._request(f"/interface.cgi?act=2&val={speed}")
-
-    async def set_furnace(self, on: bool) -> None:
-        """Turn the furnace on or off."""
-        await self._request(f"/interface.cgi?act=5&val={1 if on else 0}")
-
-    async def set_floor_heat(self, on: bool) -> None:
-        """Turn floor heat on or off."""
-        await self._request(f"/interface.cgi?act=10&val={1 if on else 0}")
-
-    async def set_fan(self, on: bool) -> None:
-        """Turn the fan on or off."""
-        await self._request(f"/interface.cgi?act=8&val={1 if on else 0}")
-
-    async def set_electric_heat(self, on: bool) -> None:
-        """Turn electric heat on or off."""
-        await self._request(f"/interface.cgi?act=4&val={1 if on else 0}")
-
-    async def set_continuous_heat(self, on: bool) -> None:
-        """Turn continuous heat on or off."""
-        await self._request(f"/interface.cgi?act=6&val={1 if on else 0}")
-
-    async def close(self) -> None:
-        """Close the session."""
-        if self._session:
-            await self._session.close()
-            self._session = None
+        Docs: "Celsius to API value: val = Math.round(C * 10)". JavaScript's
+        Math.round rounds halves up, unlike Python's round().
+        """
+        await self.send_command(
+            Command.TARGET_TEMPERATURE, math.floor(temperature * 10 + 0.5)
+        )

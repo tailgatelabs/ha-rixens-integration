@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Aligned the API client with Rixen's official MCS Local API documentation (#64)
+- The "Continuous heat" switch is now named "Hot water", matching the official
+  docs. Existing entity IDs (`switch.…_continuous_heat`) are unchanged.
+
+### Fixed
+
+- Status parsing no longer fails when a Wi‑Fi SSID or password contains `&`
+- Fan speed `999` is recognised as Auto (newer firmware)
+- Temperature setpoints are rounded instead of truncated (75°F now sends 239)
+- Temperature and humidity report unknown instead of -999 when no cabin sensor
+  is connected
+- Comfort Hot tank status (`glycol`) is parsed as its 0–3 value instead of a
+  boolean
+
 ## [0.1.0] - 2026-01-16
 
 ### Added

@@ -106,8 +106,8 @@
       "electric_heat": {
         "name": "Electric heat"
       },
-      "continuous_heat": {
-        "name": "Continuous heat"
+      "hot_water": {
+        "name": "Hot water"
       }
     }
   }

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -13,7 +13,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .api import RixensApi, RixensData
+from .api import Command, RixensData
 from .const import DOMAIN
 from .coordinator import RixensCoordinator
 
@@ -23,44 +23,36 @@ class RixensSwitchEntityDescription(SwitchEntityDescription):
     """Describes a Rixens switch entity."""
 
     value_fn: Callable[[RixensData], bool]
-    turn_on_fn: Callable[[RixensApi], Awaitable[None]]
-    turn_off_fn: Callable[[RixensApi], Awaitable[None]]
+    command: Command  # Sent with val=1 to turn on, val=0 to turn off
 
 
+# *src fields: hardware state (0 = Off, 1 = ready, 2 = active)
 SWITCH_DESCRIPTIONS: tuple[RixensSwitchEntityDescription, ...] = (
     RixensSwitchEntityDescription(
         key="furnace",
         translation_key="furnace",
-        value_fn=lambda data: (
-            data.settings.furnace_src != 0
-        ),  # 0 = disabled, 1 = enabled, 2 = active
-        turn_on_fn=lambda api: api.set_furnace(True),
-        turn_off_fn=lambda api: api.set_furnace(False),
+        value_fn=lambda data: data.settings.furnace_src != 0,
+        command=Command.FURNACE,
     ),
     RixensSwitchEntityDescription(
         key="floor_heat",
         translation_key="floor_heat",
-        value_fn=lambda data: (
-            data.settings.floor_src != 0
-        ),  # 0 = disabled, 1 = enabled, 2 = active
-        turn_on_fn=lambda api: api.set_floor_heat(True),
-        turn_off_fn=lambda api: api.set_floor_heat(False),
+        value_fn=lambda data: data.settings.floor_src != 0,
+        command=Command.HEATED_FLOORS,
     ),
     RixensSwitchEntityDescription(
         key="electric_heat",
         translation_key="electric_heat",
-        value_fn=lambda data: (
-            data.settings.electric_src != 0
-        ),  # 0 = disabled, 1 = enabled, 2 = active
-        turn_on_fn=lambda api: api.set_electric_heat(True),
-        turn_off_fn=lambda api: api.set_electric_heat(False),
+        value_fn=lambda data: data.settings.electric_src != 0,
+        command=Command.ELECTRIC_HEAT,
     ),
+    # Hot Water mode (cnstheat). The key predates the official docs and is
+    # kept so the unique_id stays stable for existing installs.
     RixensSwitchEntityDescription(
         key="continuous_heat",
-        translation_key="continuous_heat",
+        translation_key="hot_water",
         value_fn=lambda data: data.settings.cnst_heat != 0,
-        turn_on_fn=lambda api: api.set_continuous_heat(True),
-        turn_off_fn=lambda api: api.set_continuous_heat(False),
+        command=Command.HOT_WATER,
     ),
 )
 
@@ -105,10 +97,10 @@ class RixensSwitch(CoordinatorEntity[RixensCoordinator], SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
-        await self.entity_description.turn_on_fn(self.coordinator.api)
+        await self.coordinator.api.send_command(self.entity_description.command, True)
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        await self.entity_description.turn_off_fn(self.coordinator.api)
+        await self.coordinator.api.send_command(self.entity_description.command, False)
         await self.coordinator.async_request_refresh()

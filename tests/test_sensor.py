@@ -53,6 +53,19 @@ class TestSensorEntity:
         sensor = self._make_sensor(mock_coordinator, "current_humidity")
         assert sensor.native_value == 14.5
 
+    def test_native_value_no_cabin_sensor(self, mock_coordinator):
+        """Missing cabin sensor reports unknown instead of a sentinel value."""
+        mock_coordinator.data = make_rixens_data(
+            current_temp=None, current_humidity=None
+        )
+        assert (
+            self._make_sensor(mock_coordinator, "current_temperature").native_value
+            is None
+        )
+        assert (
+            self._make_sensor(mock_coordinator, "current_humidity").native_value is None
+        )
+
     def test_native_value_battery(self, mock_coordinator):
         sensor = self._make_sensor(mock_coordinator, "battery_voltage")
         assert sensor.native_value == 12.5
@@ -97,7 +110,9 @@ class TestSensorEntity:
         assert sensor.native_value == 0.0
 
     def test_effective_fan_speed_auto(self, mock_coordinator):
-        mock_coordinator.data = make_rixens_data(fan_state=True, fan_speed="Auto", pid_speed=73)
+        mock_coordinator.data = make_rixens_data(
+            fan_state=True, fan_speed="Auto", pid_speed=73
+        )
         sensor = self._make_sensor(mock_coordinator, "effective_fan_speed")
         assert sensor.native_value == 73
 

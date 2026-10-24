@@ -14,9 +14,10 @@ from homeassistant.components.climate import (
 )
 from homeassistant.const import ATTR_TEMPERATURE
 
+from custom_components.rixens.api import Command
 from custom_components.rixens.climate import RixensClimate
 
-from .conftest import make_rixens_data
+from .conftest import make_rixens_data, sent_commands
 
 
 # ---------------------------------------------------------------------------
@@ -30,6 +31,11 @@ class TestClimateProperties:
     def test_current_temperature(self, mock_coordinator):
         climate = RixensClimate(mock_coordinator)
         assert climate.current_temperature == 17.1
+
+    def test_current_temperature_no_cabin_sensor(self, mock_coordinator):
+        mock_coordinator.data = make_rixens_data(current_temp=None)
+        climate = RixensClimate(mock_coordinator)
+        assert climate.current_temperature is None
 
     def test_current_temperature_no_data(self, mock_coordinator):
         mock_coordinator.data = None
@@ -220,55 +226,61 @@ class TestClimateActions:
         """Turning on with no previous state defaults to furnace."""
         climate = RixensClimate(mock_coordinator)
         await climate.async_set_hvac_mode(HVACMode.HEAT)
-        mock_coordinator.api.set_furnace.assert_awaited_once_with(True)
+        assert sent_commands(mock_coordinator.api) == [(Command.FURNACE, True)]
 
     async def test_set_hvac_mode_heat_restores_sources(self, mock_coordinator):
         """Turning on restores previously enabled sources."""
         climate = RixensClimate(mock_coordinator)
         climate._last_heat_sources = {"furnace": True, "electric": True}
         await climate.async_set_hvac_mode(HVACMode.HEAT)
-        mock_coordinator.api.set_furnace.assert_awaited_with(True)
-        mock_coordinator.api.set_electric_heat.assert_awaited_with(True)
+        assert sent_commands(mock_coordinator.api) == [
+            (Command.FURNACE, True),
+            (Command.ELECTRIC_HEAT, True),
+        ]
 
     async def test_set_hvac_mode_heat_restores_only_furnace(self, mock_coordinator):
         """Restores only previously-enabled sources."""
         climate = RixensClimate(mock_coordinator)
         climate._last_heat_sources = {"furnace": True, "electric": False}
         await climate.async_set_hvac_mode(HVACMode.HEAT)
-        mock_coordinator.api.set_furnace.assert_awaited_with(True)
-        mock_coordinator.api.set_electric_heat.assert_not_awaited()
+        assert sent_commands(mock_coordinator.api) == [(Command.FURNACE, True)]
 
     async def test_set_hvac_mode_off_saves_and_disables(self, mock_coordinator):
         mock_coordinator.data = make_rixens_data(furnace_src=2, electric_src=1)
         climate = RixensClimate(mock_coordinator)
         await climate.async_set_hvac_mode(HVACMode.OFF)
         assert climate._last_heat_sources == {"furnace": True, "electric": True}
-        mock_coordinator.api.set_furnace.assert_awaited_with(False)
-        mock_coordinator.api.set_electric_heat.assert_awaited_with(False)
+        assert sent_commands(mock_coordinator.api) == [
+            (Command.FURNACE, False),
+            (Command.ELECTRIC_HEAT, False),
+        ]
 
     async def test_set_fan_mode_off(self, mock_coordinator):
         climate = RixensClimate(mock_coordinator)
         await climate.async_set_fan_mode("off")
-        mock_coordinator.api.set_fan.assert_awaited_once_with(False)
-        mock_coordinator.api.set_fan_speed.assert_not_awaited()
+        assert sent_commands(mock_coordinator.api) == [(Command.FAN_STATE, False)]
 
     async def test_set_fan_mode_auto(self, mock_coordinator):
         climate = RixensClimate(mock_coordinator)
         await climate.async_set_fan_mode("auto")
-        mock_coordinator.api.set_fan.assert_awaited_once_with(True)
-        mock_coordinator.api.set_fan_speed.assert_awaited_once_with(999)
+        assert sent_commands(mock_coordinator.api) == [
+            (Command.FAN_STATE, True),
+            (Command.FAN_SPEED, 999),
+        ]
 
     async def test_set_fan_mode_manual(self, mock_coordinator):
         climate = RixensClimate(mock_coordinator)
         await climate.async_set_fan_mode("50")
-        mock_coordinator.api.set_fan.assert_awaited_once_with(True)
-        mock_coordinator.api.set_fan_speed.assert_awaited_once_with(50)
+        assert sent_commands(mock_coordinator.api) == [
+            (Command.FAN_STATE, True),
+            (Command.FAN_SPEED, 50),
+        ]
 
     async def test_set_fan_mode_out_of_range(self, mock_coordinator):
         """Fan speed outside valid range is not sent and no refresh is triggered."""
         climate = RixensClimate(mock_coordinator)
         await climate.async_set_fan_mode("5")
-        mock_coordinator.api.set_fan_speed.assert_not_awaited()
+        mock_coordinator.api.send_command.assert_not_awaited()
         mock_coordinator.async_request_refresh.assert_not_awaited()
 
     async def test_set_preset_mode(self, mock_coordinator):
@@ -291,10 +303,12 @@ class TestClimateActions:
     async def test_turn_on(self, mock_coordinator):
         climate = RixensClimate(mock_coordinator)
         await climate.async_turn_on()
-        mock_coordinator.api.set_furnace.assert_awaited()
+        assert sent_commands(mock_coordinator.api) == [(Command.FURNACE, True)]
 
     async def test_turn_off(self, mock_coordinator):
         climate = RixensClimate(mock_coordinator)
         await climate.async_turn_off()
-        mock_coordinator.api.set_furnace.assert_awaited_with(False)
-        mock_coordinator.api.set_electric_heat.assert_awaited_with(False)
+        assert sent_commands(mock_coordinator.api) == [
+            (Command.FURNACE, False),
+            (Command.ELECTRIC_HEAT, False),
+        ]

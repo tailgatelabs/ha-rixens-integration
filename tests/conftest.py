@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -15,6 +17,12 @@ from custom_components.rixens.api import (
 )
 from custom_components.rixens.const import CONF_HOST, CONF_PORT, DEFAULT_PORT
 from custom_components.rixens.coordinator import RixensCoordinator
+
+# Manufacturer's sample from the official API docs (firmware HW2-1.208),
+# Wi-Fi credentials redacted. Contains a bare "&" and no-sensor sentinels.
+SAMPLE_XML_1_208 = (
+    Path(__file__).parent.parent / "example_mcs7_status_hw2-1.208.xml"
+).read_text()
 
 SAMPLE_XML = """\
 <response>
@@ -76,8 +84,8 @@ SAMPLE_XML = """\
 
 def make_rixens_data(
     *,
-    current_temp: float = 17.1,
-    current_humidity: float = 14.5,
+    current_temp: float | None = 17.1,
+    current_humidity: float | None = 14.5,
     system_heat: bool = True,
     heater_state: int = 20,
     setpoint: float = 18.0,
@@ -111,7 +119,6 @@ def make_rixens_data(
     return RixensData(
         version=version,
         heat_version=heat_version,
-        mode=1,
         uptime=146691,
         system_heat=system_heat,
         heater_state=heater_state,
@@ -149,7 +156,7 @@ def make_rixens_data(
             aux_enable=False,
             fan_enabled=True,
             therm_enabled=True,
-            glycol=False,
+            glycol=0,
             heatsources=12,
             aux_src=0,
             floor_src=floor_src,
@@ -178,14 +185,13 @@ def mock_api() -> AsyncMock:
     api.get_status = AsyncMock(return_value=make_rixens_data())
     api.test_connection = AsyncMock(return_value=True)
     api.set_temperature = AsyncMock()
-    api.set_fan_speed = AsyncMock()
-    api.set_furnace = AsyncMock()
-    api.set_floor_heat = AsyncMock()
-    api.set_fan = AsyncMock()
-    api.set_electric_heat = AsyncMock()
-    api.set_continuous_heat = AsyncMock()
-    api.close = AsyncMock()
+    api.send_command = AsyncMock()
     return api
+
+
+def sent_commands(api: AsyncMock) -> list[tuple[Any, ...]]:
+    """Return the (command, value) pairs sent through a mock API, in order."""
+    return [call.args for call in api.send_command.await_args_list]
 
 
 @pytest.fixture

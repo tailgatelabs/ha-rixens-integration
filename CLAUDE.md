@@ -20,8 +20,9 @@ custom_components/rixens/
 ├── const.py         # Domain and configuration constants
 ├── climate.py       # Climate entity (thermostat control)
 ├── sensor.py        # Sensor entities (temp, humidity, diagnostics)
-├── switch.py        # Switch entities (furnace, fan, heat zones)
-├── number.py        # Number entity (fan speed slider)
+├── switch.py        # Switch entities (furnace, floor heat, electric heat, hot water)
+├── fan.py           # Fan entity (on/off, speed, auto preset)
+├── binary_sensor.py # Connection status
 ├── manifest.json    # Integration metadata
 ├── strings.json     # Translatable strings (source)
 └── translations/    # Localized UI strings
@@ -29,22 +30,43 @@ custom_components/rixens/
 
 ## Device API
 
-The Rixens device exposes an HTTP API:
+The integration implements the official
+[Rixen's MCS Local API](https://documenter.getpostman.com/view/55318949/2sBXwnsBuf).
+Field and command descriptions from the docs are kept as comments in `api.py`.
+Where the docs differ from observed data, current behaviour is kept and tracked
+in issue #72.
 
 **Status endpoint:** `GET /status.xml` - Returns XML with all device state
 
-- All temperature values are in **tenths of a degree Celsius** (e.g., 171 =
-  17.1°C)
+- Poll every 2-5 s for live dashboards, never faster than 1 req/s (we use 5 s)
+- Command responses are not authoritative; always refresh from `status.xml`
+- Temperatures (`currenttemp`, `setpoint`) are **tenths of °C**; flame, inlet
+  and outlet temps are **hundredths of °C**
+- `currenttemp=-9990` / `currenthumidity=-999` mean no cabin sensor (parsed as
+  `None`)
+- The device does not escape `&` in strings; `api.py` escapes it before parsing
+- The XML contains Wi-Fi credentials (`key`, `infra_pass`): never log it or
+  expose them as entities
 - Home Assistant handles display unit conversion based on user preferences
 
-**Control endpoints:** All use GET requests
+**Control endpoint:** `GET /interface.cgi?act=<id>&val=<int>` (base-10 integers
+only), sent via `RixensApi.send_command(Command.<NAME>, value)`
 
-- `/interface.cgi?act=1&val=XXX` - Set temperature setpoint (in tenths of °C)
-- `/interface.cgi?act=2&val=XXX` - Set fan speed (10-100, or 999 for auto)
-- `/interface.cgi?act=4&val=0|1` - Electric heat on/off
-- `/interface.cgi?act=5&val=0|1` - Furnace on/off
-- `/interface.cgi?act=8&val=0|1` - Fan on/off
-- `/interface.cgi?act=10&val=0|1` - Floor heat on/off
+| act | Command (`api.Command`) | Notes                          |
+| --- | ----------------------- | ------------------------------ |
+| 1   | Target temperature      | `Math.round(°C * 10)`          |
+| 2   | Fan speed               | 0-100, 999 = Auto (we use 10+) |
+| 3   | Engine add heat         | not exposed yet (#66)          |
+| 4   | Electric heat           | 0/1                            |
+| 5   | Furnace                 | 0/1                            |
+| 6   | Hot water               | 0/1                            |
+| 7   | Engine pre-heat         | not exposed yet (#66)          |
+| 8   | Fan state               | 0/1                            |
+| 9   | Thermostat state        | not used yet (#67)             |
+| 10  | Heated floors           | 0/1                            |
+| 11  | Aux                     | not exposed yet (#66)          |
+
+`buttons.cgi` momentary commands are not implemented yet (#69).
 
 ## Key Patterns
 
@@ -63,8 +85,8 @@ The Rixens device exposes an HTTP API:
 | -------- | ------------------------------------------------------------------------------------------------ |
 | climate  | Main thermostat (setpoint, current temp, fan modes, HVAC modes)                                  |
 | sensor   | Temperature, humidity, battery voltage, flame/inlet/outlet temps, altitude, runtime, diagnostics |
-| switch   | Furnace, fan, floor heat, electric heat                                                          |
-| number   | Fan speed (10-100%)                                                                              |
+| switch   | Furnace, floor heat, electric heat, hot water                                                    |
+| fan      | Fan (on/off, 10-100% speed, auto preset)                                                         |
 
 ## Development
 
@@ -78,7 +100,7 @@ The Rixens device exposes an HTTP API:
 
 **Adding new controls:**
 
-1. Add API method in `api.py`
+1. Use the documented `Command` in `api.py` (or add a parsed field)
 2. Add entity description in appropriate platform file
 3. Add translation key in `strings.json` and `translations/en.json`
 
