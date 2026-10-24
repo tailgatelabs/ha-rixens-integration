@@ -6,9 +6,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.const import UnitOfTime
+from homeassistant.const import EntityCategory, UnitOfTime
 
 from custom_components.rixens.const import CONF_FUEL_DOSE, DEFAULT_FUEL_DOSE
+from custom_components.rixens.faults import FAULT_OPTIONS
 from custom_components.rixens.sensor import (
     SENSOR_DESCRIPTIONS,
     RixensSensor,
@@ -84,6 +85,71 @@ class TestSensorEntity:
         assert sensor.options == ["off", "warming", "ready", "max"]
         assert sensor.icon == "mdi:water-boiler"
         assert sensor.entity_category is None  # shown on dashboards by default
+
+    def test_fault_sensors_are_diagnostic_enums(self, mock_coordinator):
+        for key in ("active_fault", "last_fault"):
+            sensor = self._make_sensor(mock_coordinator, key)
+            assert sensor.device_class == SensorDeviceClass.ENUM
+            assert sensor.options == FAULT_OPTIONS
+            assert sensor.entity_category == EntityCategory.DIAGNOSTIC
+
+    @pytest.mark.parametrize(
+        ("af", "expected", "p_code", "fault_class"),
+        [
+            (0, "no_fault", None, None),
+            (48, "metering_pump_open", "P000200", "fuel_supply_or_pump"),
+            (123, "other", None, None),
+            (255, None, None, None),
+        ],
+    )
+    def test_active_fault(self, mock_coordinator, af, expected, p_code, fault_class):
+        mock_coordinator.data = make_rixens_data(faults={"AF": af})
+        sensor = self._make_sensor(mock_coordinator, "active_fault")
+        assert sensor.native_value == expected
+        assert sensor.extra_state_attributes == {
+            "code": af,
+            "p_code": p_code,
+            "fault_class": fault_class,
+        }
+
+    def test_active_fault_not_reported(self, mock_coordinator):
+        mock_coordinator.data = make_rixens_data(faults={})
+        sensor = self._make_sensor(mock_coordinator, "active_fault")
+        assert sensor.native_value is None
+        assert sensor.extra_state_attributes == {
+            "code": None,
+            "p_code": None,
+            "fault_class": None,
+        }
+
+    def test_last_fault_uses_f1(self, mock_coordinator):
+        """F1 is the most recent stored fault."""
+        mock_coordinator.data = make_rixens_data(
+            faults={"AF": 0, "F1": 52, "F2": 50, "F3": 0, "F4": 0, "F5": 11}
+        )
+        sensor = self._make_sensor(mock_coordinator, "last_fault")
+        assert sensor.native_value == "start_failed"
+        assert sensor.extra_state_attributes == {
+            "code": 52,
+            "p_code": "P00012A",
+            "fault_class": "fuel_supply_or_pump",
+            "stored_fault_codes": [52, 50, 0, 0, 11],
+        }
+
+    def test_last_fault_no_stored_faults(self, mock_coordinator):
+        mock_coordinator.data = make_rixens_data(faults={"AF": 0})
+        sensor = self._make_sensor(mock_coordinator, "last_fault")
+        assert sensor.native_value is None
+        assert sensor.extra_state_attributes == {
+            "code": None,
+            "p_code": None,
+            "fault_class": None,
+            "stored_fault_codes": [],
+        }
+
+    def test_sensor_without_attributes_fn(self, mock_coordinator):
+        sensor = self._make_sensor(mock_coordinator, "battery_voltage")
+        assert sensor.extra_state_attributes is None
 
     def test_native_value_battery(self, mock_coordinator):
         sensor = self._make_sensor(mock_coordinator, "battery_voltage")

@@ -12,6 +12,7 @@ from .coordinator import RixensCoordinator
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.CLIMATE,
+    Platform.EVENT,
     Platform.FAN,
     Platform.SENSOR,
     Platform.SWITCH,

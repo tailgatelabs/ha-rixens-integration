@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -30,6 +31,13 @@ from .api import RixensData
 from .const import CONF_FUEL_DOSE, DEFAULT_FUEL_DOSE, DOMAIN
 from .coordinator import RixensCoordinator
 from .fan import compute_fan_speed
+from .faults import (
+    FAULT_OPTIONS,
+    active_fault_code,
+    fault_attributes,
+    fault_key,
+    stored_fault_codes,
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -38,6 +46,7 @@ class RixensSensorEntityDescription(SensorEntityDescription):
 
     value_fn: Callable[[RixensData], float | int | str | None]
     icon_fn: Callable[[float | int | str | None], str | None] | None = None
+    attributes_fn: Callable[[RixensData], dict[str, Any]] | None = None
 
 
 # Comfort Hot tank status, read from glycolstate (see RixensData.glycol_state):
@@ -178,6 +187,29 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         value_fn=lambda data: GLYCOL_TANK_STATES.get(data.glycol_state),
     ),
     RixensSensorEntityDescription(
+        key="active_fault",
+        translation_key="active_fault",
+        device_class=SensorDeviceClass.ENUM,
+        options=FAULT_OPTIONS,
+        icon="mdi:alert-circle-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: fault_key(active_fault_code(data)),
+        attributes_fn=lambda data: fault_attributes(active_fault_code(data)),
+    ),
+    RixensSensorEntityDescription(
+        key="last_fault",
+        translation_key="last_fault",
+        device_class=SensorDeviceClass.ENUM,
+        options=FAULT_OPTIONS,
+        icon="mdi:history",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: fault_key(next(iter(stored_fault_codes(data)), None)),
+        attributes_fn=lambda data: {
+            **fault_attributes(next(iter(stored_fault_codes(data)), None)),
+            "stored_fault_codes": stored_fault_codes(data),
+        },
+    ),
+    RixensSensorEntityDescription(
         key="firmware_version",
         translation_key="firmware_version",
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -237,6 +269,13 @@ class RixensSensor(CoordinatorEntity[RixensCoordinator], SensorEntity):
         if self.entity_description.icon_fn is not None:
             return self.entity_description.icon_fn(self.native_value)
         return super().icon
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return additional state attributes."""
+        if self.coordinator.data and self.entity_description.attributes_fn:
+            return self.entity_description.attributes_fn(self.coordinator.data)
+        return None
 
     @property
     def native_value(self) -> float | int | str | None:

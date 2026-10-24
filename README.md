@@ -59,6 +59,7 @@ Assistant:
 | See if hot water is ready             | Comfort Hot tank sensor (Off, Warming, Ready, Max)               |
 | Track heater diagnostics              | Battery voltage, flame temp, fuel consumption, runtime, and more |
 | Check connectivity                    | Connection status binary sensor                                  |
+| Get alerted to heater faults          | Heater fault problem sensor and fault-detected event             |
 
 The integration follows Rixen's official
 [MCS Local API documentation](https://documenter.getpostman.com/view/55318949/2sBXwnsBuf).

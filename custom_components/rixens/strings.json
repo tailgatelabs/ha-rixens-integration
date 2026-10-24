@@ -36,6 +36,9 @@
     "binary_sensor": {
       "connection": {
         "name": "Connection"
+      },
+      "heater_fault": {
+        "name": "Heater fault"
       }
     },
     "sensor": {
@@ -98,6 +101,137 @@
       },
       "effective_fan_speed": {
         "name": "Effective fan speed"
+      },
+      "active_fault": {
+        "name": "Active fault",
+        "state": {
+          "no_fault": "No fault",
+          "air_pressure_sensor": "Air pressure sensor implausible",
+          "overvoltage": "Overvoltage cutout",
+          "undervoltage": "Undervoltage cutout",
+          "overheating": "Overheating (software threshold)",
+          "overheating_risk": "Possible overheating (implausible sensor signal)",
+          "overheating_lockout": "Lock-out after repeated overheating",
+          "overheating_hardware": "Overheating (hardware threshold)",
+          "glow_plug_ignition_energy_low": "Glow plug ignition energy too low",
+          "glow_plug_open": "Glow plug open circuit",
+          "glow_plug_short": "Glow plug short circuit",
+          "glow_plug_short_to_positive": "Glow plug short to positive",
+          "burner_motor_blocked": "Burner motor blocked",
+          "burner_motor_current_high": "Burner motor current too high",
+          "metering_pump_short": "Fuel metering pump short circuit",
+          "metering_pump_open": "Fuel metering pump open circuit",
+          "metering_pump_short_to_positive": "Fuel metering pump short to positive",
+          "start_lockout": "Lock-out after too many failed starts",
+          "cold_air_timeout": "Cold air timeout",
+          "start_failed": "Start failed",
+          "flame_cutout": "Flame cutout during operation",
+          "flame_cutout_start": "Flame cutout during start",
+          "flame_sensor_open": "Flame sensor open circuit",
+          "flame_sensor_short": "Flame sensor short circuit",
+          "water_outlet_sensor_open": "Water outlet sensor open circuit",
+          "water_outlet_sensor_short": "Water outlet sensor short circuit",
+          "water_outlet_sensor_short_to_positive": "Water outlet sensor short to positive",
+          "overheating_detection_defective": "Overheating detection defective",
+          "can_communication_error": "CAN communication error",
+          "water_inlet_sensor_open": "Water inlet sensor open circuit",
+          "water_inlet_sensor_short": "Water inlet sensor short circuit",
+          "water_inlet_sensor_short_to_positive": "Water inlet sensor short to positive",
+          "watchdog_reset": "Watchdog reset",
+          "too_many_resets": "Too many resets (loose contact)",
+          "control_box_defective": "Control box defective",
+          "control_box_not_calibrated": "Control box not calibrated",
+          "second_cutout_defective": "Second cutout circuit defective",
+          "output_stage_lockout": "Lock-out after output stage errors",
+          "other": "Other fault"
+        },
+        "state_attributes": {
+          "fault_class": {
+            "name": "Fault class",
+            "state": {
+              "service": "Service",
+              "undervoltage": "Undervoltage",
+              "overvoltage": "Overvoltage",
+              "fuel_supply_or_pump": "Fuel supply or pump",
+              "water_circuit_or_pump": "Water circuit or pump",
+              "overheat_heater_locked": "Overheat, heater locked",
+              "restricted_operation": "Restricted operation"
+            }
+          },
+          "code": {
+            "name": "Code"
+          },
+          "p_code": {
+            "name": "P-code"
+          }
+        }
+      },
+      "last_fault": {
+        "name": "Last fault",
+        "state": {
+          "no_fault": "No fault",
+          "air_pressure_sensor": "Air pressure sensor implausible",
+          "overvoltage": "Overvoltage cutout",
+          "undervoltage": "Undervoltage cutout",
+          "overheating": "Overheating (software threshold)",
+          "overheating_risk": "Possible overheating (implausible sensor signal)",
+          "overheating_lockout": "Lock-out after repeated overheating",
+          "overheating_hardware": "Overheating (hardware threshold)",
+          "glow_plug_ignition_energy_low": "Glow plug ignition energy too low",
+          "glow_plug_open": "Glow plug open circuit",
+          "glow_plug_short": "Glow plug short circuit",
+          "glow_plug_short_to_positive": "Glow plug short to positive",
+          "burner_motor_blocked": "Burner motor blocked",
+          "burner_motor_current_high": "Burner motor current too high",
+          "metering_pump_short": "Fuel metering pump short circuit",
+          "metering_pump_open": "Fuel metering pump open circuit",
+          "metering_pump_short_to_positive": "Fuel metering pump short to positive",
+          "start_lockout": "Lock-out after too many failed starts",
+          "cold_air_timeout": "Cold air timeout",
+          "start_failed": "Start failed",
+          "flame_cutout": "Flame cutout during operation",
+          "flame_cutout_start": "Flame cutout during start",
+          "flame_sensor_open": "Flame sensor open circuit",
+          "flame_sensor_short": "Flame sensor short circuit",
+          "water_outlet_sensor_open": "Water outlet sensor open circuit",
+          "water_outlet_sensor_short": "Water outlet sensor short circuit",
+          "water_outlet_sensor_short_to_positive": "Water outlet sensor short to positive",
+          "overheating_detection_defective": "Overheating detection defective",
+          "can_communication_error": "CAN communication error",
+          "water_inlet_sensor_open": "Water inlet sensor open circuit",
+          "water_inlet_sensor_short": "Water inlet sensor short circuit",
+          "water_inlet_sensor_short_to_positive": "Water inlet sensor short to positive",
+          "watchdog_reset": "Watchdog reset",
+          "too_many_resets": "Too many resets (loose contact)",
+          "control_box_defective": "Control box defective",
+          "control_box_not_calibrated": "Control box not calibrated",
+          "second_cutout_defective": "Second cutout circuit defective",
+          "output_stage_lockout": "Lock-out after output stage errors",
+          "other": "Other fault"
+        },
+        "state_attributes": {
+          "fault_class": {
+            "name": "Fault class",
+            "state": {
+              "service": "Service",
+              "undervoltage": "Undervoltage",
+              "overvoltage": "Overvoltage",
+              "fuel_supply_or_pump": "Fuel supply or pump",
+              "water_circuit_or_pump": "Water circuit or pump",
+              "overheat_heater_locked": "Overheat, heater locked",
+              "restricted_operation": "Restricted operation"
+            }
+          },
+          "code": {
+            "name": "Code"
+          },
+          "p_code": {
+            "name": "P-code"
+          },
+          "stored_fault_codes": {
+            "name": "Stored fault codes"
+          }
+        }
       }
     },
     "fan": {
@@ -117,6 +251,18 @@
       },
       "hot_water": {
         "name": "Hot water"
+      }
+    },
+    "event": {
+      "heater_fault": {
+        "name": "Heater fault",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "fault_detected": "Fault detected"
+            }
+          }
+        }
       }
     }
   }
