@@ -22,7 +22,9 @@ custom_components/rixens/
 ├── sensor.py        # Sensor entities (temp, humidity, diagnostics)
 ├── switch.py        # Switch entities (furnace, floor heat, electric heat, hot water)
 ├── fan.py           # Fan entity (on/off, speed, auto preset)
-├── binary_sensor.py # Connection status
+├── binary_sensor.py # Connection status, heater fault
+├── event.py         # Heater fault event
+├── faults.py        # Fault code table and helpers
 ├── manifest.json    # Integration metadata
 ├── strings.json     # Translatable strings (source)
 └── translations/    # Localized UI strings
@@ -81,12 +83,14 @@ only), sent via `RixensApi.send_command(Command.<NAME>, value)`
 
 ## Platforms
 
-| Platform | Entities                                                                                                           |
-| -------- | ------------------------------------------------------------------------------------------------------------------ |
-| climate  | Main thermostat (setpoint, current temp, fan modes, HVAC modes)                                                    |
-| sensor   | Temperature, humidity, Comfort Hot tank, battery voltage, flame/inlet/outlet temps, altitude, runtime, diagnostics |
-| switch   | Furnace, floor heat, electric heat, hot water                                                                      |
-| fan      | Fan (on/off, 10-100% speed, auto preset)                                                                           |
+| Platform      | Entities                                                                                                                   |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| climate       | Main thermostat (setpoint, current temp, fan modes, HVAC modes)                                                            |
+| sensor        | Temperature, humidity, Comfort Hot tank, battery voltage, flame/inlet/outlet temps, altitude, runtime, faults, diagnostics |
+| switch        | Furnace, floor heat, electric heat, hot water                                                                              |
+| fan           | Fan (on/off, 10-100% speed, auto preset)                                                                                   |
+| binary_sensor | Connection status, heater fault                                                                                            |
+| event         | Heater fault detected                                                                                                      |
 
 ## Development
 

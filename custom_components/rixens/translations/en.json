@@ -36,6 +36,9 @@
     "binary_sensor": {
       "connection": {
         "name": "Connection"
+      },
+      "heater_fault": {
+        "name": "Heater fault"
       }
     },
     "sensor": {
@@ -98,6 +101,66 @@
       },
       "effective_fan_speed": {
         "name": "Effective fan speed"
+      },
+      "active_fault": {
+        "name": "Active fault",
+        "state": {
+          "no_fault": "No fault",
+          "overvoltage": "Overvoltage cutout",
+          "undervoltage": "Undervoltage cutout",
+          "overheating": "Overheating",
+          "overheating_sensor_difference": "Flame/overheating sensor difference too large",
+          "overheating_lockout": "Operating lock-out (repeated overheating)",
+          "overheating_hardware": "Overheating (hardware cutout)",
+          "glow_plug_open": "Glow plug open circuit",
+          "glow_plug_short": "Glow plug short circuit",
+          "glow_plug_short_to_positive": "Glow plug short to positive",
+          "metering_pump_short": "Fuel metering pump short circuit",
+          "metering_pump_open": "Fuel metering pump open circuit",
+          "metering_pump_short_to_positive": "Fuel metering pump short to positive",
+          "start_lockout": "Lock-out after too many failed starts",
+          "start_failed": "Start failed (safety time exceeded)",
+          "flame_cutout": "Flame cutout during operation",
+          "room_sensor_open": "External temperature sensor open circuit",
+          "room_sensor_short": "External temperature sensor short circuit",
+          "flame_sensor_open": "Flame sensor open circuit",
+          "flame_sensor_short": "Flame sensor short circuit",
+          "overheating_sensor_open": "Overheating sensor open circuit",
+          "overheating_sensor_short": "Overheating sensor short circuit",
+          "control_box_defective": "Control box defective",
+          "too_many_resets": "Too many resets / output stage error",
+          "other": "Other fault"
+        }
+      },
+      "last_fault": {
+        "name": "Last fault",
+        "state": {
+          "no_fault": "No fault",
+          "overvoltage": "Overvoltage cutout",
+          "undervoltage": "Undervoltage cutout",
+          "overheating": "Overheating",
+          "overheating_sensor_difference": "Flame/overheating sensor difference too large",
+          "overheating_lockout": "Operating lock-out (repeated overheating)",
+          "overheating_hardware": "Overheating (hardware cutout)",
+          "glow_plug_open": "Glow plug open circuit",
+          "glow_plug_short": "Glow plug short circuit",
+          "glow_plug_short_to_positive": "Glow plug short to positive",
+          "metering_pump_short": "Fuel metering pump short circuit",
+          "metering_pump_open": "Fuel metering pump open circuit",
+          "metering_pump_short_to_positive": "Fuel metering pump short to positive",
+          "start_lockout": "Lock-out after too many failed starts",
+          "start_failed": "Start failed (safety time exceeded)",
+          "flame_cutout": "Flame cutout during operation",
+          "room_sensor_open": "External temperature sensor open circuit",
+          "room_sensor_short": "External temperature sensor short circuit",
+          "flame_sensor_open": "Flame sensor open circuit",
+          "flame_sensor_short": "Flame sensor short circuit",
+          "overheating_sensor_open": "Overheating sensor open circuit",
+          "overheating_sensor_short": "Overheating sensor short circuit",
+          "control_box_defective": "Control box defective",
+          "too_many_resets": "Too many resets / output stage error",
+          "other": "Other fault"
+        }
       }
     },
     "fan": {
@@ -117,6 +180,18 @@
       },
       "hot_water": {
         "name": "Hot water"
+      }
+    },
+    "event": {
+      "heater_fault": {
+        "name": "Heater fault",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "fault_detected": "Fault detected"
+            }
+          }
+        }
       }
     }
   }

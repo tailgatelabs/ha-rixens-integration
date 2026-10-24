@@ -143,7 +143,11 @@ def make_rixens_data(
             heater_state=heater_state,
             glow_pin=glow_pin,
             preheat=preheat,
-            faults=faults or {},
+            faults=(
+                {name: 0 for name in ("AF", "F1", "F2", "F3", "F4", "F5")}
+                if faults is None
+                else faults
+            ),
         ),
         settings=RixensSettings(
             setpoint=setpoint,

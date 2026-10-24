@@ -16,7 +16,9 @@ custom_components/rixens/
 ├── sensor.py        # Sensor entities (temp, humidity, diagnostics)
 ├── switch.py        # Switch entities (furnace, floor heat, electric heat, hot water)
 ├── fan.py           # Fan entity (on/off, speed, auto preset)
-├── binary_sensor.py # Connection status
+├── binary_sensor.py # Connection status, heater fault
+├── event.py         # Heater fault event
+├── faults.py        # Fault code table and helpers
 ├── manifest.json    # Integration metadata
 ├── strings.json     # Translatable strings (source)
 └── translations/    # Localized UI strings
@@ -148,6 +150,29 @@ water timer) are not implemented yet
 
 - **Connection** — Device connectivity status (always available, even when
   device is offline)
+- **Heater fault** — Problem sensor, on while the heater is in its error state
+  (`heaterstate` 200) or reports an active fault code. Attributes:
+  `active_fault_code`, `stored_fault_codes` (F1–F5, most recent first),
+  `heater_state`
+
+### Heater Faults
+
+`status.xml` reports faults in `<heater1-faults>`: `AF` is the active fault and
+`F1`–`F5` are the stored faults, with `F1` the most recent. The official docs
+don't describe these fields, so fault names come from the classic numeric
+Eberspächer codes in `faults.py`, using only codes where two public references
+agree. They are unconfirmed by Rixen's
+([#76](https://github.com/tailgatelabs/ha-rixens-integration/issues/76)).
+Unlisted codes show as **Other fault**, and the raw code is always available as
+an attribute. `AF=255` is treated as "no data", not a fault.
+
+- **Active fault** (diagnostic sensor) — Named active fault, with the raw code
+  in the `code` attribute
+- **Last fault** (diagnostic sensor) — Named most recent stored fault (F1), with
+  `code` and `stored_fault_codes` attributes
+- **Heater fault** (event) — Fires `fault_detected` with `code` and `fault` when
+  a new active fault appears. A fault already active when Home Assistant starts
+  does not fire; use the Heater fault binary sensor for that.
 
 ## Advanced Behavior
 
@@ -179,13 +204,14 @@ When turning the climate entity on/off:
 
 ## Platforms Summary
 
-| Platform      | Entities                                                                                         |
-| ------------- | ------------------------------------------------------------------------------------------------ |
-| climate       | Main thermostat (setpoint, current temp, fan modes, HVAC modes)                                  |
-| sensor        | Temperature, humidity, battery voltage, flame/inlet/outlet temps, altitude, runtime, diagnostics |
-| switch        | Furnace, floor heat, electric heat, hot water                                                    |
-| fan           | Fan (on/off, 10-100% speed, auto preset)                                                         |
-| binary_sensor | Connection status                                                                                |
+| Platform      | Entities                                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------------------------- |
+| climate       | Main thermostat (setpoint, current temp, fan modes, HVAC modes)                                          |
+| sensor        | Temperature, humidity, battery voltage, flame/inlet/outlet temps, altitude, runtime, faults, diagnostics |
+| switch        | Furnace, floor heat, electric heat, hot water                                                            |
+| fan           | Fan (on/off, 10-100% speed, auto preset)                                                                 |
+| binary_sensor | Connection status, heater fault                                                                          |
+| event         | Heater fault detected                                                                                    |
 
 ## Device Compatibility
 
