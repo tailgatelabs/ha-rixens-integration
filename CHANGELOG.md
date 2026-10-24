@@ -8,6 +8,11 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- Comfort Hot tank status sensor: Off, Warming, Ready (122°F) or Max (158°F)
+  (#65)
+
 ### Changed
 
 - Aligned the API client with Rixen's official MCS Local API documentation (#64)
@@ -21,8 +26,7 @@ and this project adheres to
 - Temperature setpoints are rounded instead of truncated (75°F now sends 239)
 - Temperature and humidity report unknown instead of -999 when no cabin sensor
   is connected
-- Comfort Hot tank status (`glycol`) is parsed as its 0–3 value instead of a
-  boolean
+- `settings.glycol` is parsed as an integer instead of a boolean
 - Heater runtime is reported in minutes instead of seconds (#72). Existing
   installs will see the value jump to the correct, larger number.
 

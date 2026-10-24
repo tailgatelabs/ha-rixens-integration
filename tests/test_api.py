@@ -215,10 +215,15 @@ class TestParseStatus:
         assert data.version == "Unknown"  # empty text triggers default
         assert data.current_temp == 0.0
 
-    def test_glycol_is_enum_value(self):
-        """Glycol is 0-3 (Off/Warming/Ready/Max), not a bool."""
+    def test_glycol_is_int(self):
+        """settings.glycol is parsed as an int, not a bool."""
         xml = "<response><settings><glycol>3</glycol></settings></response>"
         assert _parse(xml).settings.glycol == 3
+
+    def test_glycolstate_is_tank_status(self):
+        """glycolstate carries the 0-3 Comfort Hot tank status."""
+        xml = "<response><glycolstate>3</glycolstate></response>"
+        assert _parse(xml).glycol_state == 3
 
     def test_fanspeed_999_is_auto(self):
         xml = "<response><settings><fanspeed>999</fanspeed></settings></response>"

@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import UnitOfTime
 
 from custom_components.rixens.const import CONF_FUEL_DOSE, DEFAULT_FUEL_DOSE
@@ -66,6 +67,23 @@ class TestSensorEntity:
         assert (
             self._make_sensor(mock_coordinator, "current_humidity").native_value is None
         )
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [(0, "off"), (1, "warming"), (2, "ready"), (3, "max"), (7, None)],
+    )
+    def test_glycol_tank_state(self, mock_coordinator, raw, expected):
+        """glycolstate maps 0-3 to named states; others are unknown."""
+        mock_coordinator.data = make_rixens_data(glycol_state=raw)
+        sensor = self._make_sensor(mock_coordinator, "glycol_tank")
+        assert sensor.native_value == expected
+
+    def test_glycol_tank_is_enum_with_options(self, mock_coordinator):
+        sensor = self._make_sensor(mock_coordinator, "glycol_tank")
+        assert sensor.device_class == SensorDeviceClass.ENUM
+        assert sensor.options == ["off", "warming", "ready", "max"]
+        assert sensor.icon == "mdi:water-boiler"
+        assert sensor.entity_category is None  # shown on dashboards by default
 
     def test_native_value_battery(self, mock_coordinator):
         sensor = self._make_sensor(mock_coordinator, "battery_voltage")

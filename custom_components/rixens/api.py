@@ -98,7 +98,9 @@ class RixensSettings:
     aux_enable: bool
     fan_enabled: bool  # Air handler fan toggle state (0 = Off, 1 = On)
     therm_enabled: bool  # Thermostat toggle state (0 = Off, 1 = On)
-    # Comfort Hot tank status: 0 = Off, 1 = Warming, 2 = Ready (122°F), 3 = Max (158°F)
+    # Docs: "Comfort Hot tank status: 0 = Off, 1 = Warming, 2 = Ready (122°F),
+    # 3 = Max (158°F)". Live data shows the tank status is in glycolstate
+    # instead; the meaning of this field is unknown, see #72
     glycol: int
     heatsources: int  # Bitmask: furnace = 4, electric = 2, engine = 1
     # Hardware state of each heat source (0 = Off, 1 = ready, 2 = active)
@@ -122,7 +124,11 @@ class RixensData:
     zone2_state: int  # State of zone 2
     zone3_state: int  # State of zone 3
     engine_state: int  # Engine add heat enabled (0 = Off, 1 = On)
-    glycol_state: int  # Glycol tank up to temp (0 = No, 1 = Yes)
+    # Comfort Hot tank status: 0 = Off, 1 = Warming, 2 = Ready (122°F),
+    # 3 = Max (158°F). The docs list this as "Glycol tank up to temp (0 = No,
+    # 1 = Yes)" and give the 0-3 scale to settings.glycol, but a controller
+    # screen showing Ready matched glycolstate=2 with glycol=0, see #72
+    glycol_state: int
     # Current cabin temperature in °C, None when no sensor is connected
     current_temp: float | None
     # Current cabin humidity in %, None when no sensor is connected
