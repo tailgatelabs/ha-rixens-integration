@@ -1,0 +1,142 @@
+<response>
+    <version>HW2-1.208 2026_05_11 RIXENS</version>
+    <heatversion>1.07 2026-04-25</heatversion>
+    <lfs>0</lfs>
+    <mode>1</mode>
+    <uptime>1900</uptime>
+    <dip>0</dip>
+    <systemheat>0</systemheat>
+    <heaterstate>0</heaterstate>
+    <zone2state>0</zone2state>
+    <zone3state>0</zone3state>
+    <enginestate>0</enginestate>
+    <glycolstate>0</glycolstate>
+    <currenttemp>-9990</currenttemp>
+    <currenthumidity>-999</currenthumidity>
+    <heater1>
+        <heaton>0</heaton>
+        <battv>0</battv>
+        <timer>0</timer>
+        <resettimer>0</resettimer>
+        <runtime>0</runtime>
+        <rawsetpoint>0</rawsetpoint>
+        <pidspeed>0</pidspeed>
+        <piderr>0</piderr>
+        <obalt>2</obalt>
+        <flametemp>0</flametemp>
+        <inlettemp>0</inlettemp>
+        <outlettemp>0</outlettemp>
+        <altitude>986.000000</altitude>
+        <internalaltitude>0</internalaltitude>
+        <rawaltitude>0.000000</rawaltitude>
+        <primecounter>0</primecounter>
+        <glowpin>0</glowpin>
+        <dosingpump>0</dosingpump>
+        <burnermotor>0</burnermotor>
+        <faultcycle>-999</faultcycle>
+        <heaterstate>0</heaterstate>
+        <temperature>0</temperature>
+        <can>0</can>
+        <preheat>0</preheat>
+    </heater1>
+    <heater1-faults>
+        <fault>
+            <name>AF</name>
+            <value>255</value>
+        </fault>
+        <fault>
+            <name>F1</name>
+            <value>0</value>
+        </fault>
+        <fault>
+            <name>F2</name>
+            <value>0</value>
+        </fault>
+        <fault>
+            <name>F3</name>
+            <value>0</value>
+        </fault>
+        <fault>
+            <name>F4</name>
+            <value>0</value>
+        </fault>
+        <fault>
+            <name>F5</name>
+            <value>0</value>
+        </fault>
+    </heater1-faults>
+    <settings>
+        <altitudemode>0</altitudemode>
+        <security>WPA2</security>
+        <key>REDACTED</key>
+        <ssid>RIXENB80637</ssid>
+        <channel>1</channel>
+        <floorenable>0</floorenable>
+        <cantype>0</cantype>
+        <glycol>0</glycol>
+        <engineenable>1</engineenable>
+        <electricenable>1</electricenable>
+        <preheatenable>1</preheatenable>
+        <auxenable>1</auxenable>
+        <pwm>0</pwm>
+        <pumpspeed>1</pumpspeed>
+        <flooroffset>1</flooroffset>
+        <ehfmode>1</ehfmode>
+        <fanenabled>1</fanenabled>
+        <override>1</override>
+        <thermenabled>1</thermenabled>
+        <setpoint>239</setpoint>
+        <fanspeed>95</fanspeed>
+        <pumpstate>0</pumpstate>
+        <fanstate>0</fanstate>
+        <heatsources>0</heatsources>
+        <overridesrc>0</overridesrc>
+        <auxsrc>0</auxsrc>
+        <floorsrc>0</floorsrc>
+        <furnacesrc>0</furnacesrc>
+        <electricsrc>0</electricsrc>
+        <enginesrc>0</enginesrc>
+        <cnstheat>0</cnstheat>
+        <cnstheattimer>0</cnstheattimer>
+        <cnstheattimerval>-1</cnstheattimerval>
+        <preheatsrc>0</preheatsrc>
+    </settings>
+    <autofan>
+        <fanset id="0" speed="999" />
+        <fanset id="1" speed="50" />
+        <fanset id="2" speed="25" />
+        <fanset id="3" speed="0" />
+        <fanset id="4" speed="1" />
+        <fanset id="5" speed="1" />
+        <fanset id="6" speed="10" />
+        <fanset id="7" speed="45" />
+        <fanset id="8" speed="50" />
+        <fanset id="9" speed="100" />
+    </autofan>
+    <GPSTracking>0</GPSTracking>
+    <GPSTrackInterval>60</GPSTrackInterval>
+    <wifi_scan_results>
+        <scanresult ssid="Artek" security="4194308" />
+        <scanresult ssid="Storyteller" security="4194308" />
+        <scanresult ssid="Eberspacher" security="4194308" />
+        <scanresult ssid="RemoteVans" security="0" />
+        <scanresult ssid="Off Highway" security="4194308" />
+        <scanresult ssid="Sprinter" security="4194308" />
+        <scanresult ssid="Revel" security="4194308" />
+    </wifi_scan_results>
+    <infrastructure>
+        <infra_ssid>R&DRouter</infra_ssid>
+        <infra_pass>REDACTED</infra_pass>
+        <infra_mask>0.0.0.0</infra_mask>
+        <infra_gw>0.0.0.0</infra_gw>
+        <infra_dns>0.0.0.0</infra_dns>
+        <infra_sec>4194308</infra_sec>
+        <infra_static>0.0.0.0</infra_static>
+        <infra_error>0</infra_error>
+        <infra_error_code>
+0</infra_error_code>
+        <infra_netup>1</infra_netup>
+        <infra_dhcp>1</infra_dhcp>
+        <infra_ip>192.168.7.128</infra_ip>
+    </infrastructure>
+</response>

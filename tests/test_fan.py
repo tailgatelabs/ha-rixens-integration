@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import pytest
 
+from custom_components.rixens.api import Command
 from custom_components.rixens.fan import (
     PRESET_MODE_AUTO,
     RixensFan,
     compute_fan_speed,
 )
 
-from .conftest import make_rixens_data
+from .conftest import make_rixens_data, sent_commands
 
 
 class TestComputeFanSpeed:
@@ -81,7 +82,9 @@ class TestFanEntity:
         assert entity.percentage == 50
 
     def test_percentage_auto(self, mock_coordinator):
-        mock_coordinator.data = make_rixens_data(fan_state=True, fan_speed="Auto", pid_speed=73)
+        mock_coordinator.data = make_rixens_data(
+            fan_state=True, fan_speed="Auto", pid_speed=73
+        )
         entity = RixensFan(mock_coordinator)
         assert entity.percentage == 73
 
@@ -111,7 +114,9 @@ class TestFanEntity:
         assert entity.preset_mode is None
 
     def test_extra_attributes_auto(self, mock_coordinator):
-        mock_coordinator.data = make_rixens_data(fan_state=True, fan_speed="Auto", pid_speed=73)
+        mock_coordinator.data = make_rixens_data(
+            fan_state=True, fan_speed="Auto", pid_speed=73
+        )
         entity = RixensFan(mock_coordinator)
         attrs = entity.extra_state_attributes
         assert attrs["mode"] == "auto"
@@ -119,7 +124,9 @@ class TestFanEntity:
         assert "configured_speed" not in attrs
 
     def test_extra_attributes_manual(self, mock_coordinator):
-        mock_coordinator.data = make_rixens_data(fan_state=True, fan_speed="50", pid_speed=48)
+        mock_coordinator.data = make_rixens_data(
+            fan_state=True, fan_speed="50", pid_speed=48
+        )
         entity = RixensFan(mock_coordinator)
         attrs = entity.extra_state_attributes
         assert attrs["mode"] == "manual"
@@ -151,42 +158,50 @@ class TestFanActions:
     async def test_turn_on(self, mock_coordinator):
         entity = RixensFan(mock_coordinator)
         await entity.async_turn_on()
-        mock_coordinator.api.set_fan.assert_awaited_once_with(True)
+        assert sent_commands(mock_coordinator.api) == [(Command.FAN_STATE, True)]
         mock_coordinator.async_request_refresh.assert_awaited()
 
     async def test_turn_on_with_preset_auto(self, mock_coordinator):
         entity = RixensFan(mock_coordinator)
         await entity.async_turn_on(preset_mode=PRESET_MODE_AUTO)
-        mock_coordinator.api.set_fan.assert_awaited_once_with(True)
-        mock_coordinator.api.set_fan_speed.assert_awaited_once_with(999)
+        assert sent_commands(mock_coordinator.api) == [
+            (Command.FAN_STATE, True),
+            (Command.FAN_SPEED, 999),
+        ]
 
     async def test_turn_on_with_percentage(self, mock_coordinator):
         entity = RixensFan(mock_coordinator)
         await entity.async_turn_on(percentage=50)
-        mock_coordinator.api.set_fan.assert_awaited_once_with(True)
-        mock_coordinator.api.set_fan_speed.assert_awaited_once_with(50)
+        assert sent_commands(mock_coordinator.api) == [
+            (Command.FAN_STATE, True),
+            (Command.FAN_SPEED, 50),
+        ]
 
     async def test_turn_off(self, mock_coordinator):
         entity = RixensFan(mock_coordinator)
         await entity.async_turn_off()
-        mock_coordinator.api.set_fan.assert_awaited_once_with(False)
+        assert sent_commands(mock_coordinator.api) == [(Command.FAN_STATE, False)]
         mock_coordinator.async_request_refresh.assert_awaited()
 
     async def test_set_percentage(self, mock_coordinator):
         entity = RixensFan(mock_coordinator)
         await entity.async_set_percentage(50)
-        mock_coordinator.api.set_fan.assert_awaited_once_with(True)
-        mock_coordinator.api.set_fan_speed.assert_awaited_once_with(50)
+        assert sent_commands(mock_coordinator.api) == [
+            (Command.FAN_STATE, True),
+            (Command.FAN_SPEED, 50),
+        ]
         mock_coordinator.async_request_refresh.assert_awaited()
 
     async def test_set_percentage_zero_turns_off(self, mock_coordinator):
         entity = RixensFan(mock_coordinator)
         await entity.async_set_percentage(0)
-        mock_coordinator.api.set_fan.assert_awaited_once_with(False)
+        assert sent_commands(mock_coordinator.api) == [(Command.FAN_STATE, False)]
 
     async def test_set_preset_mode_auto(self, mock_coordinator):
         entity = RixensFan(mock_coordinator)
         await entity.async_set_preset_mode(PRESET_MODE_AUTO)
-        mock_coordinator.api.set_fan.assert_awaited_once_with(True)
-        mock_coordinator.api.set_fan_speed.assert_awaited_once_with(999)
+        assert sent_commands(mock_coordinator.api) == [
+            (Command.FAN_STATE, True),
+            (Command.FAN_SPEED, 999),
+        ]
         mock_coordinator.async_request_refresh.assert_awaited()

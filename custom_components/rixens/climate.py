@@ -33,7 +33,9 @@ from .const import (
     FAN_SPEED_STEP,
     TEMP_MAX,
     TEMP_MIN,
+    TEMP_STEP,
 )
+from .api import Command
 from .coordinator import RixensCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -71,7 +73,7 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
     _attr_preset_modes = [PRESET_AWAY, PRESET_HOME, PRESET_SLEEP]
     _attr_min_temp = TEMP_MIN
     _attr_max_temp = TEMP_MAX
-    _attr_target_temperature_step = 0.5
+    _attr_target_temperature_step = TEMP_STEP
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE
         | ClimateEntityFeature.FAN_MODE
@@ -137,7 +139,8 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
         if not self.coordinator.data:
             return HVACMode.OFF
 
-        # HVAC mode is HEAT if any heat source is enabled (!= 0)
+        # HVAC mode is HEAT if any heat source is enabled
+        # (*src: 0 = Off, 1 = ready, 2 = active).
         # Only furnace_src, electric_src, and engine_src are actual heat sources
         if (
             self.coordinator.data.settings.furnace_src != 0
@@ -242,28 +245,29 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
         Preserves heat source configuration when toggling between OFF and HEAT.
         When turning on, restores previously enabled sources (or defaults to furnace).
         When turning off, remembers which sources were enabled.
+
+        Engine add heat (act=3) is not toggled here; see #67 for moving HVAC
+        OFF/HEAT to the thermostat state command (act=9).
         """
         if hvac_mode == HVACMode.HEAT:
             # Restore previous configuration or default to furnace only
             if self._last_heat_sources:
                 if self._last_heat_sources.get("furnace"):
-                    await self.coordinator.api.set_furnace(True)
+                    await self.coordinator.api.send_command(Command.FURNACE, True)
                 if self._last_heat_sources.get("electric"):
-                    await self.coordinator.api.set_electric_heat(True)
-                # Note: engine heat cannot be controlled via API
+                    await self.coordinator.api.send_command(Command.ELECTRIC_HEAT, True)
             else:
                 # Default: enable furnace only
-                await self.coordinator.api.set_furnace(True)
+                await self.coordinator.api.send_command(Command.FURNACE, True)
         elif hvac_mode == HVACMode.OFF:
             # Save current heat source state before turning off
             if self.coordinator.data:
                 self._last_heat_sources = {
                     "furnace": self.coordinator.data.settings.furnace_src != 0,
                     "electric": self.coordinator.data.settings.electric_src != 0,
-                    # Engine heat state is tracked but cannot be controlled via API
                 }
-            await self.coordinator.api.set_furnace(False)
-            await self.coordinator.api.set_electric_heat(False)
+            await self.coordinator.api.send_command(Command.FURNACE, False)
+            await self.coordinator.api.send_command(Command.ELECTRIC_HEAT, False)
         await self.coordinator.async_request_refresh()
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
@@ -274,16 +278,16 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
         Manual: turn fan on (act=8, val=1), then set speed (act=2, val=N).
         """
         if fan_mode == FAN_MODE_OFF:
-            await self.coordinator.api.set_fan(False)
+            await self.coordinator.api.send_command(Command.FAN_STATE, False)
         elif fan_mode == FAN_MODE_AUTO:
-            await self.coordinator.api.set_fan(True)
-            await self.coordinator.api.set_fan_speed(FAN_SPEED_AUTO)
+            await self.coordinator.api.send_command(Command.FAN_STATE, True)
+            await self.coordinator.api.send_command(Command.FAN_SPEED, FAN_SPEED_AUTO)
         else:
             speed = int(fan_mode)
             if not FAN_SPEED_MIN <= speed <= FAN_SPEED_MAX:
                 return
-            await self.coordinator.api.set_fan(True)
-            await self.coordinator.api.set_fan_speed(speed)
+            await self.coordinator.api.send_command(Command.FAN_STATE, True)
+            await self.coordinator.api.send_command(Command.FAN_SPEED, speed)
         await self.coordinator.async_request_refresh()
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:

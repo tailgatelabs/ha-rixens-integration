@@ -14,8 +14,9 @@ custom_components/rixens/
 ├── const.py         # Domain and configuration constants
 ├── climate.py       # Climate entity (thermostat control)
 ├── sensor.py        # Sensor entities (temp, humidity, diagnostics)
-├── switch.py        # Switch entities (furnace, fan, heat zones)
-├── number.py        # Number entity (fan speed slider)
+├── switch.py        # Switch entities (furnace, floor heat, electric heat, hot water)
+├── fan.py           # Fan entity (on/off, speed, auto preset)
+├── binary_sensor.py # Connection status
 ├── manifest.json    # Integration metadata
 ├── strings.json     # Translatable strings (source)
 └── translations/    # Localized UI strings
@@ -34,29 +35,50 @@ custom_components/rixens/
 
 ## Device API
 
-The Rixens device exposes an HTTP API:
+The integration implements the official
+[Rixen's MCS Local API](https://documenter.getpostman.com/view/55318949/2sBXwnsBuf).
+The manufacturer's field and command descriptions are kept as comments in
+`api.py`. Where the docs differ from observed data, the integration keeps its
+current behaviour; see
+[#72](https://github.com/tailgatelabs/ha-rixens-integration/issues/72).
+
+> "The controller is state-owned. Command endpoints submit intent, but actual
+> system state must be verified by reading status.xml."
 
 ### Status Endpoint
 
-`GET /status.xml` — Returns XML with all device state.
+`GET /status.xml` — Returns XML with all device state. The docs recommend
+polling every 2–5 seconds for live dashboards and never faster than once per
+second; the integration polls every 5 seconds.
 
-- All temperature values are in **tenths of a degree Celsius** (e.g., 171 =
-  17.1°C)
+- Cabin temperature and setpoint are in **tenths of a degree Celsius** (e.g.,
+  171 = 17.1°C); flame, inlet and outlet temperatures are in **hundredths**
+- `currenttemp=-9990` and `currenthumidity=-999` mean no cabin sensor is
+  connected; these are reported as unknown
+- The XML includes Wi‑Fi credentials, so it is never logged
 - Home Assistant handles display unit conversion based on user preferences
 
-### Control Endpoints
+### Control Endpoint
 
-All use GET requests:
+`GET /interface.cgi?act=<id>&val=<int>`. Values must be base-10 integers.
 
-| Endpoint                         | Description                                |
-| -------------------------------- | ------------------------------------------ |
-| `/interface.cgi?act=1&val=XXX`   | Set temperature setpoint (in tenths of °C) |
-| `/interface.cgi?act=2&val=XXX`   | Set fan speed (10-100, or 999 for auto)    |
-| `/interface.cgi?act=4&val=0\|1`  | Electric heat on/off                       |
-| `/interface.cgi?act=5&val=0\|1`  | Furnace on/off                             |
-| `/interface.cgi?act=6&val=0\|1`  | Continuous heat on/off                     |
-| `/interface.cgi?act=8&val=0\|1`  | Fan on/off                                 |
-| `/interface.cgi?act=10&val=0\|1` | Floor heat on/off                          |
+| act  | Command            | Values                                                | Used by              |
+| ---- | ------------------ | ----------------------------------------------------- | -------------------- |
+| `1`  | Target temperature | `Math.round(°C × 10)` (75°F → 239)                    | Climate              |
+| `2`  | Fan speed          | 0–100, `999` = Auto (integration sends 10–100 or 999) | Climate, Fan         |
+| `3`  | Engine add heat    | 0/1                                                   | not yet (#66)        |
+| `4`  | Electric heat      | 0/1                                                   | Electric heat switch |
+| `5`  | Furnace            | 0/1                                                   | Furnace switch       |
+| `6`  | Hot water          | 0/1                                                   | Hot water switch     |
+| `7`  | Engine pre-heat    | 0/1                                                   | not yet (#66)        |
+| `8`  | Fan state          | 0/1                                                   | Climate, Fan         |
+| `9`  | Thermostat state   | 0/1                                                   | not yet (#67)        |
+| `10` | Heated floors      | 0/1                                                   | Floor heat switch    |
+| `11` | Aux                | 0/1                                                   | not yet (#66)        |
+
+The momentary `buttons.cgi` commands (reset faults, prime fuel pump, 30-min hot
+water timer) are not implemented yet
+([#69](https://github.com/tailgatelabs/ha-rixens-integration/issues/69)).
 
 ## Entity Reference
 
@@ -75,8 +97,8 @@ All use GET requests:
 
 #### Environmental
 
-- **Temperature** — Current room temperature
-- **Humidity** — Current room humidity
+- **Temperature** — Current room temperature (unknown if no cabin sensor)
+- **Humidity** — Current room humidity (unknown if no cabin sensor)
 - **Atmospheric Pressure** — Barometric pressure in hPa (used for altitude
   compensation)
 
@@ -107,14 +129,13 @@ All use GET requests:
 - **Furnace** — Enable/disable diesel/propane furnace heating
 - **Electric Heat** — Enable/disable electric heating element
 - **Floor Heat** — Enable/disable floor heating zone
-- **Fan** — Manual fan on/off control
-- **Continuous Heat** — Enable/disable continuous heat mode
+- **Hot Water** — Enable/disable Hot Water mode (`cnstheat`). Existing installs
+  keep the original `switch.…_continuous_heat` entity ID.
 
-### Number Entity
+### Fan Entity
 
-- **Fan Speed** — Slider control for manual fan speed (10-100%)
+- **Fan** — On/off, manual speed (10-100%) and an `auto` preset
   - Displays actual PID speed when in auto mode
-  - Setting a value automatically switches to manual mode
 
 ### Binary Sensors
 
@@ -155,8 +176,8 @@ When turning the climate entity on/off:
 | ------------- | ------------------------------------------------------------------------------------------------ |
 | climate       | Main thermostat (setpoint, current temp, fan modes, HVAC modes)                                  |
 | sensor        | Temperature, humidity, battery voltage, flame/inlet/outlet temps, altitude, runtime, diagnostics |
-| switch        | Furnace, fan, floor heat, electric heat, continuous heat                                         |
-| number        | Fan speed (10-100%)                                                                              |
+| switch        | Furnace, floor heat, electric heat, hot water                                                    |
+| fan           | Fan (on/off, 10-100% speed, auto preset)                                                         |
 | binary_sensor | Connection status                                                                                |
 
 ## Device Compatibility
@@ -173,9 +194,14 @@ Firmware versions known to work:
 <heatversion>1.06 2025-11-21 PID</heatversion>
 ```
 
+Sample `status.xml` files are kept at the repository root and used as test
+fixtures: `example_mcs7_status.xml` (HW2-1.205, from a real device) and
+`example_mcs7_status_hw2-1.208.xml` (HW2-1.208, the manufacturer's sample from
+the official docs, Wi‑Fi credentials redacted).
+
 ## Adding New Controls
 
-1. Add API method in `api.py`
+1. Use the documented `Command` in `api.py` (or add a parsed field)
 2. Add entity description in appropriate platform file
 3. Add translation key in `strings.json` and `translations/en.json`
 

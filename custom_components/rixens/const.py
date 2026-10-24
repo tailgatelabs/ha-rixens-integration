@@ -10,12 +10,14 @@ CONF_PORT = "port"
 DEFAULT_PORT = 80
 
 # Fan speed constants
-FAN_SPEED_MIN = 10
+FAN_SPEED_MIN = 10  # Docs allow 0-100; meaning of 0 unconfirmed, see #72
 FAN_SPEED_MAX = 100
 FAN_SPEED_STEP = 10
-FAN_SPEED_AUTO = 999
+FAN_SPEED_AUTO = 999  # act=2 value and documented <fanspeed> value for Auto
 
-# Fan mode values reported by the device XML (<fanspeed> element)
+# Fan mode values reported by the device XML (<fanspeed> element).
+# Firmware 1.205 reports "Auto"; a documented 999 is normalized to it by the API.
+# "Off" is not in the docs but is kept in case older firmware sends it, see #72.
 DEVICE_FAN_OFF = "Off"
 DEVICE_FAN_AUTO = "Auto"
 
@@ -27,10 +29,6 @@ FAN_MODE_AUTO = "auto"
 TEMP_MIN = 5
 TEMP_MAX = 35
 TEMP_STEP = 0.5
-
-# Heater states
-HEATER_STATE_OFF = 0
-HEATER_STATE_RUNNING = 20
 
 # Fuel consumption constants
 CONF_FUEL_DOSE = "fuel_dose"

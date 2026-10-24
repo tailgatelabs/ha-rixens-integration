@@ -52,11 +52,15 @@ Assistant:
 | Set your desired temperature (5-35°C) | Climate card or thermostat entity                                |
 | Turn the heater on or off             | Climate card power button                                        |
 | Switch between heat sources           | Furnace, Electric Heat, and Floor Heat switches                  |
+| Turn on hot water                     | Hot Water switch                                                 |
 | Control the fan                       | Auto mode or manual speed (10-100%)                              |
 | Use quick presets                     | Away (freeze protection), Home, or Sleep                         |
 | Monitor room conditions               | Temperature and humidity sensors                                 |
 | Track heater diagnostics              | Battery voltage, flame temp, fuel consumption, runtime, and more |
 | Check connectivity                    | Connection status binary sensor                                  |
+
+The integration follows Rixen's official
+[MCS Local API documentation](https://documenter.getpostman.com/view/55318949/2sBXwnsBuf).
 
 All temperature values automatically display in your preferred units (Celsius or
 Fahrenheit) based on your Home Assistant settings.
@@ -185,6 +189,8 @@ automation:
 - The integration automatically retries failed connections and keeps the last
   known data for about 50 seconds during brief network hiccups
 - If sensors stay unavailable, check your Home Assistant logs for error details
+- Temperature and humidity show **Unknown** when no cabin sensor is connected to
+  the controller
 
 ### Updates seem slow?
 
