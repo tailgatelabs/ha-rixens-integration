@@ -82,7 +82,20 @@
         "name": "Fuel consumption"
       },
       "heater_state": {
-        "name": "Heater state"
+        "name": "Heater state",
+        "state": {
+          "off": "Off",
+          "starting_cold": "Starting (cold)",
+          "starting_warm": "Starting (warm)",
+          "running": "Running",
+          "shutting_down": "Shutting down",
+          "error": "Error"
+        },
+        "state_attributes": {
+          "raw_state": {
+            "name": "Raw state"
+          }
+        }
       },
       "glycol_tank": {
         "name": "Comfort Hot tank",

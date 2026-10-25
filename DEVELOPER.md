@@ -130,7 +130,15 @@ water timer) are not implemented yet
 
 #### System Information
 
-- **Heater State** — Current operational state code
+- **Heater State** — Heater operating state (`heaterstate`): Off (0),
+  Starting (cold) (10), Starting (warm) (12), Running (20), Shutting down (30)
+  or Error (200). Unknown for any other value; the raw number is in the
+  `raw_state` attribute. Only 200 is documented. The other values are inferred
+  from live data (see
+  [#71](https://github.com/tailgatelabs/ha-rixens-integration/issues/71)):
+  10 and 12 are the glow and ignition phase, 12 when the heater is still warm
+  from a recent run; 30 is the afterrun, with fuel off and the burner motor
+  purging for about 95 s.
 - **Firmware Version** — Main controller firmware version
 - **Heat Firmware Version** — Heater module firmware version
 

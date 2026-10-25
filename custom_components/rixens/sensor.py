@@ -58,6 +58,18 @@ GLYCOL_TANK_STATES: dict[int, str] = {
     3: "max",
 }
 
+# Heater operating state, read from heaterstate. The docs only define 200 as the
+# error state; the rest is inferred from live HW2-1.209 data and unconfirmed by
+# Rixen's (see #71). Any other value is reported as unknown.
+HEATER_STATES: dict[int, str] = {
+    0: "off",
+    10: "starting_cold",  # Glow and ignition from a cold combustion chamber
+    12: "starting_warm",  # Same, restarting while the heater is still warm
+    20: "running",  # Flame confirmed, burning at full or part load
+    30: "shutting_down",  # Fuel off, burner motor purging while it cools
+    200: "error",
+}
+
 SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
     RixensSensorEntityDescription(
         key="current_temperature",
@@ -178,8 +190,11 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
     RixensSensorEntityDescription(
         key="heater_state",
         translation_key="heater_state",
+        device_class=SensorDeviceClass.ENUM,
+        options=list(HEATER_STATES.values()),
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda data: data.heater_state,
+        value_fn=lambda data: HEATER_STATES.get(data.heater_state),
+        attributes_fn=lambda data: {"raw_state": data.heater_state},
     ),
     RixensSensorEntityDescription(
         key="glycol_tank",
