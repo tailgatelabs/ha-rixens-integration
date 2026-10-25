@@ -20,6 +20,15 @@ and this project adheres to
 
 ### Changed
 
+- **Breaking:** the Heater state sensor now reports a named state (Off,
+  Starting (cold), Starting (warm), Running, Shutting down, Purging before
+  start, Error) instead of the raw `heaterstate` number (#71). Unrecognised
+  values report unknown. The raw number is kept in the `raw_state` attribute.
+  Automations, templates or conditions that compare this sensor to a number
+  must be updated, for example to
+  `state_attr('sensor.…_heater_state', 'raw_state')`. Only 200 (error) is
+  documented; the other names are inferred from live data and unconfirmed by
+  Rixen's.
 - Aligned the API client with Rixen's official MCS Local API documentation (#64)
 - The "Continuous heat" switch is now named "Hot water", matching the official
   docs. Existing entity IDs (`switch.…_continuous_heat`) are unchanged.

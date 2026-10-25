@@ -86,6 +86,40 @@ class TestSensorEntity:
         assert sensor.icon == "mdi:water-boiler"
         assert sensor.entity_category is None  # shown on dashboards by default
 
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            (0, "off"),
+            (10, "starting_cold"),
+            (12, "starting_warm"),
+            (20, "running"),
+            (30, "shutting_down"),
+            (40, "pre_start_purge"),
+            (200, "error"),
+            (15, None),
+        ],
+    )
+    def test_heater_state(self, mock_coordinator, raw, expected):
+        """heaterstate maps known values to named states; others are unknown."""
+        mock_coordinator.data = make_rixens_data(heater_state=raw)
+        sensor = self._make_sensor(mock_coordinator, "heater_state")
+        assert sensor.native_value == expected
+        assert sensor.extra_state_attributes == {"raw_state": raw}
+
+    def test_heater_state_is_diagnostic_enum(self, mock_coordinator):
+        sensor = self._make_sensor(mock_coordinator, "heater_state")
+        assert sensor.device_class == SensorDeviceClass.ENUM
+        assert sensor.options == [
+            "off",
+            "starting_cold",
+            "starting_warm",
+            "running",
+            "shutting_down",
+            "pre_start_purge",
+            "error",
+        ]
+        assert sensor.entity_category == EntityCategory.DIAGNOSTIC
+
     def test_fault_sensors_are_diagnostic_enums(self, mock_coordinator):
         for key in ("active_fault", "last_fault"):
             sensor = self._make_sensor(mock_coordinator, key)
