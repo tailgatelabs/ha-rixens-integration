@@ -83,7 +83,6 @@ class TestSensorEntity:
         sensor = self._make_sensor(mock_coordinator, "glycol_tank")
         assert sensor.device_class == SensorDeviceClass.ENUM
         assert sensor.options == ["off", "warming", "ready", "max"]
-        assert sensor.icon == "mdi:water-boiler"
         assert sensor.entity_category is None  # shown on dashboards by default
 
     @pytest.mark.parametrize(

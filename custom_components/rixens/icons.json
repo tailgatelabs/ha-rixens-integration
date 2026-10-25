@@ -1,0 +1,96 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "heater_fault": {
+        "default": "mdi:alert-circle",
+        "state": {
+          "off": "mdi:check-circle-outline"
+        }
+      }
+    },
+    "event": {
+      "heater_fault": {
+        "default": "mdi:alert-octagon"
+      }
+    },
+    "sensor": {
+      "battery_voltage": {
+        "default": "mdi:car-battery"
+      },
+      "flame_temperature": {
+        "default": "mdi:fire"
+      },
+      "inlet_temperature": {
+        "default": "mdi:thermometer-chevron-down"
+      },
+      "outlet_temperature": {
+        "default": "mdi:thermometer-chevron-up"
+      },
+      "pid_speed": {
+        "default": "mdi:fan-auto"
+      },
+      "burner_motor": {
+        "default": "mdi:engine"
+      },
+      "dosing_pump": {
+        "default": "mdi:pump"
+      },
+      "fuel_consumption": {
+        "default": "mdi:gas-station"
+      },
+      "heater_state": {
+        "default": "mdi:radiator",
+        "state": {
+          "off": "mdi:radiator-off",
+          "starting_cold": "mdi:fire-alert",
+          "starting_warm": "mdi:fire-alert",
+          "running": "mdi:fire",
+          "shutting_down": "mdi:fire-off",
+          "pre_start_purge": "mdi:weather-windy",
+          "error": "mdi:alert-circle"
+        }
+      },
+      "glycol_tank": {
+        "default": "mdi:water-boiler",
+        "state": {
+          "off": "mdi:water-boiler-off"
+        }
+      },
+      "firmware_version": {
+        "default": "mdi:chip"
+      },
+      "heat_firmware_version": {
+        "default": "mdi:chip"
+      },
+      "active_fault": {
+        "default": "mdi:alert-circle-outline"
+      },
+      "last_fault": {
+        "default": "mdi:history"
+      }
+    },
+    "switch": {
+      "furnace": {
+        "default": "mdi:fire",
+        "state": {
+          "off": "mdi:fire-off"
+        }
+      },
+      "floor_heat": {
+        "default": "mdi:heating-coil"
+      },
+      "electric_heat": {
+        "default": "mdi:flash",
+        "state": {
+          "off": "mdi:flash-off"
+        }
+      },
+      "hot_water": {
+        "default": "mdi:water-boiler",
+        "state": {
+          "off": "mdi:water-boiler-off"
+        }
+      }
+    }
+  }
+}
