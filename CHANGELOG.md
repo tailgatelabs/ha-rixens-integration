@@ -8,6 +8,27 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- The integration version shown in Home Assistant now matches the release (it
+  reported 1.0.0 since v1.0.0)
+
+## [1.2.1] - 2026-10-25
+
+### Added
+
+- Entity icons for heat sources, heater diagnostics and faults, with icons that
+  change with state (for example furnace on/off, heater running/off) (#80)
+
+### Changed
+
+- HACS now requires Home Assistant 2024.11 or later, the minimum the integration
+  already needed (#80)
+- README: new light and dark screenshots, HACS 2.x install steps, the port and
+  fuel dose options, and corrected automation examples (#80)
+
+## [1.2.0] - 2026-10-25
+
 ### Added
 
 - Heater fault reporting (#76): a Heater fault problem binary sensor, Active
@@ -17,8 +38,6 @@ and this project adheres to
   codes are always exposed.
 - Comfort Hot tank status sensor: Off, Warming, Ready (122°F) or Max (158°F)
   (#65)
-- Entity icons for heat sources, heater diagnostics and faults, with icons that
-  change with state (for example furnace on/off, heater running/off)
 
 ### Changed
 
@@ -33,6 +52,7 @@ and this project adheres to
 - Aligned the API client with Rixen's official MCS Local API documentation (#64)
 - The "Continuous heat" switch is now named "Hot water", matching the official
   docs. Existing entity IDs (`switch.…_continuous_heat`) are unchanged.
+- Heater runtime displays in hours by default on new installs (#78)
 
 ### Fixed
 
@@ -46,6 +66,50 @@ and this project adheres to
   installs will see the value jump to the correct, larger number. New installs
   display it in hours; existing installs keep their current display unit, which
   can be changed in the entity's settings.
+
+## [1.1.0] - 2026-04-21
+
+### Changed
+
+- Fan control is now a native fan entity (on/off, 10-100% speed, Auto preset)
+  instead of a switch plus a number entity (#62)
+- README rewritten for non-technical users; developer details moved to
+  DEVELOPER.md (#58)
+- Repository moved to the tailgatelabs organisation (#63)
+
+### Fixed
+
+- Fan mode control matches the device protocol: the fan is turned on before
+  setting a speed or Auto (#59, #60)
+
+## [1.0.4] - 2026-03-10
+
+### Added
+
+- Continuous heat switch (now named Hot water)
+
+## [1.0.3] - 2026-03-10
+
+### Added
+
+- Configurable fuel dose per pump cycle for the fuel consumption sensor
+
+### Fixed
+
+- Options flow and reconfigure errors (`AttributeError`, `TypeError`)
+- Invalid `icon` key removed from `manifest.json`
+
+## [1.0.0] - 2026-01-20
+
+### Added
+
+- Error handling and resilience: failed polls are retried and the last known
+  data is kept for about 50 seconds before entities go unavailable (#43)
+
+### Fixed
+
+- HVAC mode only considers actual heat sources (#47)
+- Flame temperature scaling (divided by 100, not 10) (#49)
 
 ## [0.1.0] - 2026-01-16
 
@@ -82,5 +146,19 @@ and this project adheres to
 - Automatic unit conversions (temperatures, altitude, dosing pump)
 - DataUpdateCoordinator pattern for efficient updates
 
+[Unreleased]:
+  https://github.com/tailgatelabs/ha-rixens-integration/compare/v1.2.1...HEAD
+[1.2.1]:
+  https://github.com/tailgatelabs/ha-rixens-integration/compare/v1.2.0...v1.2.1
+[1.2.0]:
+  https://github.com/tailgatelabs/ha-rixens-integration/compare/v1.1.0...v1.2.0
+[1.1.0]:
+  https://github.com/tailgatelabs/ha-rixens-integration/compare/v1.0.4...v1.1.0
+[1.0.4]:
+  https://github.com/tailgatelabs/ha-rixens-integration/compare/v1.0.3...v1.0.4
+[1.0.3]:
+  https://github.com/tailgatelabs/ha-rixens-integration/compare/v1.0.0...v1.0.3
+[1.0.0]:
+  https://github.com/tailgatelabs/ha-rixens-integration/releases/tag/v1.0.0
 [0.1.0]:
   https://github.com/tailgatelabs/ha-rixens-integration/releases/tag/v0.1.0
