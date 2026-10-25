@@ -94,6 +94,7 @@ class TestSensorEntity:
             (12, "starting_warm"),
             (20, "running"),
             (30, "shutting_down"),
+            (40, "pre_start_purge"),
             (200, "error"),
             (15, None),
         ],
@@ -114,6 +115,7 @@ class TestSensorEntity:
             "starting_warm",
             "running",
             "shutting_down",
+            "pre_start_purge",
             "error",
         ]
         assert sensor.entity_category == EntityCategory.DIAGNOSTIC

@@ -89,6 +89,7 @@
           "starting_warm": "Starting (warm)",
           "running": "Running",
           "shutting_down": "Shutting down",
+          "pre_start_purge": "Purging before start",
           "error": "Error"
         },
         "state_attributes": {

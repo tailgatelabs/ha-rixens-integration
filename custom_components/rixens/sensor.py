@@ -67,6 +67,7 @@ HEATER_STATES: dict[int, str] = {
     12: "starting_warm",  # Same, restarting while the heater is still warm
     20: "running",  # Flame confirmed, burning at full or part load
     30: "shutting_down",  # Fuel off, burner motor purging while it cools
+    40: "pre_start_purge",  # Restart while still hot: motor cools it, no fuel
     200: "error",
 }
 
