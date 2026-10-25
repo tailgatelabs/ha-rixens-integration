@@ -18,7 +18,7 @@ alerts — all without walking to the thermostat.
 
 - A **Rixens heating system** connected to your local WiFi network (a beta
   firmware may be required)
-- **Home Assistant** (2023.1 or later)
+- **Home Assistant** (2024.11 or later)
 - **HACS** installed
   ([how to install HACS](https://hacs.xyz/docs/use/download/download/))
 
@@ -26,14 +26,15 @@ alerts — all without walking to the thermostat.
 
 ### HACS (Recommended)
 
-1. Open **HACS** > **Integrations** > three-dot menu > **Custom repositories**
+1. Open **HACS**, then the three-dot menu (top right) > **Custom repositories**
 2. Paste: `https://github.com/tailgatelabs/ha-rixens-integration`
-3. Select **Integration** as the category, then click **Add**
-4. Search for "Rixens" and install it
+3. Select **Integration** as the type, then click **Add**
+4. Search HACS for "Rixens", open it and click **Download**
 5. **Restart Home Assistant**
 6. Go to **Settings** > **Devices & Services** > **Add Integration** > search
    "Rixens"
-7. Enter your device's IP address — done!
+7. Enter your device's IP address (leave the port at 80 unless you changed it) —
+   done!
 
 ### Manual Installation
 
@@ -57,7 +58,7 @@ Assistant:
 | Switch between heat sources           | Furnace, Electric Heat, and Floor Heat switches                  |
 | Turn on hot water                     | Hot Water switch                                                 |
 | Control the fan                       | Auto mode or manual speed (10-100%)                              |
-| Use quick presets                     | Away (freeze protection), Home, or Sleep                         |
+| Use quick temperature presets         | Away (freeze protection), Home, or Sleep                         |
 | Monitor room conditions               | Temperature and humidity sensors                                 |
 | See if hot water is ready             | Comfort Hot tank sensor (Off, Warming, Ready, Max)               |
 | Track heater diagnostics              | Battery voltage, flame temp, fuel consumption, runtime, and more |
@@ -82,7 +83,8 @@ are all recorded, so you can spot problems before they leave you cold.
 
 ### Control it from your phone
 
-Everything works in the Home Assistant app, from anywhere.
+Everything works in the Home Assistant companion app, including away from the RV
+if you have remote access set up.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/mobile-dark.png">
@@ -95,11 +97,19 @@ Customize the preset temperatures to match your comfort preferences:
 
 1. Go to **Settings** > **Devices & Services**
 2. Find the **Rixens** integration and click **Configure**
-3. Adjust the preset temperatures:
+3. Adjust the preset temperatures (5-30°C):
    - **Away** — Freeze protection (default: 10°C)
    - **Home** — Comfortable living (default: 20°C)
    - **Sleep** — Night time (default: 18°C)
-4. Click **Submit** — changes apply immediately, no restart needed
+4. Click **Submit** — the integration reloads with the new values, no restart
+   needed
+
+A preset only changes the target temperature. If the heater is off, turn it on
+as well (see [Pre-Heat Before You Arrive](#pre-heat-before-you-arrive)).
+
+The same screen has a **Fuel dose per pump cycle** setting used to calculate
+fuel consumption from the dosing pump rate. Leave the default (about 0.03 mL)
+unless the reported fuel use doesn't match what you actually burn.
 
 ## Automation Ideas
 
@@ -107,6 +117,10 @@ Home Assistant lets you automate your heating based on schedules, location,
 sensors, and more. You can create automations using the visual editor in
 **Settings** > **Automations & Scenes** — no YAML required. Below are a few
 ideas with YAML examples for reference.
+
+The examples use the default entity IDs (`climate.rixens_heater`,
+`sensor.rixens_heater_battery_voltage`, …). If you renamed the device or
+entities, use your own IDs.
 
 ### Freeze Protection When You Leave
 
@@ -116,14 +130,18 @@ RV above freezing without wasting fuel.
 ```yaml
 automation:
   - alias: "RV Freeze Protection"
-    trigger:
-      - platform: state
+    triggers:
+      - trigger: state
         entity_id: person.your_name
         from: "home"
-        to: "not_home"
         for: "00:30:00"
-    action:
-      - service: climate.set_preset_mode
+    actions:
+      - action: climate.set_hvac_mode
+        target:
+          entity_id: climate.rixens_heater
+        data:
+          hvac_mode: "heat"
+      - action: climate.set_preset_mode
         target:
           entity_id: climate.rixens_heater
         data:
@@ -138,17 +156,17 @@ before it's too late.
 ```yaml
 automation:
   - alias: "RV Low Battery Alert"
-    trigger:
-      - platform: numeric_state
+    triggers:
+      - trigger: numeric_state
         entity_id: sensor.rixens_heater_battery_voltage
         below: 12.0
-    action:
-      - service: notify.mobile_app
+    actions:
+      - action: notify.mobile_app_your_phone # Your phone's notify action
         data:
           title: "Low RV Battery"
-          message:
-            "Battery voltage is {{
-            states('sensor.rixens_heater_battery_voltage') }}V"
+          message: >-
+            Battery voltage is {{ states('sensor.rixens_heater_battery_voltage')
+            }} V
 ```
 
 ### Switch to Electric Heat on Shore Power
@@ -159,19 +177,19 @@ power.
 ```yaml
 automation:
   - alias: "Use Electric Heat on Shore Power"
-    trigger:
-      - platform: state
+    triggers:
+      - trigger: state
         entity_id: binary_sensor.shore_power # Your shore power sensor
         to: "on"
-    condition:
+    conditions:
       - condition: state
         entity_id: climate.rixens_heater
         state: "heat"
-    action:
-      - service: switch.turn_off
+    actions:
+      - action: switch.turn_off
         target:
           entity_id: switch.rixens_heater_furnace
-      - service: switch.turn_on
+      - action: switch.turn_on
         target:
           entity_id: switch.rixens_heater_electric_heat
 ```
@@ -184,13 +202,18 @@ space.
 ```yaml
 automation:
   - alias: "Pre-Heat RV on Approach"
-    trigger:
-      - platform: zone
+    triggers:
+      - trigger: zone
         entity_id: person.your_name
         zone: zone.rv_location
         event: enter
-    action:
-      - service: climate.set_preset_mode
+    actions:
+      - action: climate.set_hvac_mode
+        target:
+          entity_id: climate.rixens_heater
+        data:
+          hvac_mode: "heat"
+      - action: climate.set_preset_mode
         target:
           entity_id: climate.rixens_heater
         data:
@@ -218,7 +241,7 @@ automation:
 
 ### Updates seem slow?
 
-- The integration polls your device every 5 seconds by default
+- The integration polls your device every 5 seconds
 - Slow updates usually indicate network latency — check your WiFi signal at the
   device
 
