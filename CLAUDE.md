@@ -25,6 +25,7 @@ custom_components/rixens/
 ├── binary_sensor.py # Connection status, heater fault
 ├── event.py         # Heater fault event
 ├── faults.py        # Fault code table and helpers
+├── icons.json       # Entity icons by translation key
 ├── manifest.json    # Integration metadata
 ├── strings.json     # Translatable strings (source)
 └── translations/    # Localized UI strings
@@ -107,6 +108,7 @@ only), sent via `RixensApi.send_command(Command.<NAME>, value)`
 1. Use the documented `Command` in `api.py` (or add a parsed field)
 2. Add entity description in appropriate platform file
 3. Add translation key in `strings.json` and `translations/en.json`
+4. Add an icon for the translation key in `icons.json`
 
 ## Python Environment
 

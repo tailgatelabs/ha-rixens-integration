@@ -202,7 +202,6 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         translation_key="glycol_tank",
         device_class=SensorDeviceClass.ENUM,
         options=list(GLYCOL_TANK_STATES.values()),
-        icon="mdi:water-boiler",
         value_fn=lambda data: GLYCOL_TANK_STATES.get(data.glycol_state),
     ),
     RixensSensorEntityDescription(
@@ -210,7 +209,6 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         translation_key="active_fault",
         device_class=SensorDeviceClass.ENUM,
         options=FAULT_OPTIONS,
-        icon="mdi:alert-circle-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: fault_key(active_fault_code(data)),
         attributes_fn=lambda data: fault_attributes(active_fault_code(data)),
@@ -220,7 +218,6 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         translation_key="last_fault",
         device_class=SensorDeviceClass.ENUM,
         options=FAULT_OPTIONS,
-        icon="mdi:history",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: fault_key(next(iter(stored_fault_codes(data)), None)),
         attributes_fn=lambda data: {
