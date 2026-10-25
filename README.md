@@ -9,7 +9,10 @@ Control your Rixens heating system from your phone, tablet, or any Home
 Assistant dashboard. Set temperatures, switch between heat sources, and get
 alerts — all without walking to the thermostat.
 
-![Rixens dashboard screenshot](docs/dashboard-screenshot.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/controls-dark.png">
+  <img alt="Rixens dashboard with thermostat, heat source switches and heater temperatures" src="docs/images/controls-light.png">
+</picture>
 
 ## What You Need
 
@@ -66,6 +69,25 @@ The integration follows Rixen's official
 
 All temperature values automatically display in your preferred units (Celsius or
 Fahrenheit) based on your Home Assistant settings.
+
+### Keep an eye on the heater
+
+Flame, inlet and outlet temperatures, fuel use, battery voltage and fault codes
+are all recorded, so you can spot problems before they leave you cold.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/diagnostics-dark.png">
+  <img alt="Diagnostics dashboard with heater temperature, fuel consumption and battery voltage history" src="docs/images/diagnostics-light.png">
+</picture>
+
+### Control it from your phone
+
+Everything works in the Home Assistant app, from anywhere.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/mobile-dark.png">
+  <img alt="Rixens controls in the Home Assistant mobile layout" src="docs/images/mobile-light.png" width="320">
+</picture>
 
 ## Setting Up Presets
 
