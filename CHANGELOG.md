@@ -8,11 +8,6 @@ and this project adheres to
 
 ## [Unreleased]
 
-### Fixed
-
-- The integration version shown in Home Assistant now matches the release (it
-  reported 1.0.0 since v1.0.0)
-
 ## [1.2.1] - 2026-10-25
 
 ### Added
@@ -26,6 +21,11 @@ and this project adheres to
   already needed (#80)
 - README: new light and dark screenshots, HACS 2.x install steps, the port and
   fuel dose options, and corrected automation examples (#80)
+
+### Fixed
+
+- The integration version shown in Home Assistant now matches the release (it
+  reported 1.0.0 since v1.0.0) (#81)
 
 ## [1.2.0] - 2026-10-25
 
