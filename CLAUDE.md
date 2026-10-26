@@ -45,6 +45,10 @@ in issue #72.
 - Command responses are not authoritative; always refresh from `status.xml`
 - Temperatures (`currenttemp`, `setpoint`) are **tenths of °C**; flame, inlet
   and outlet temps are **hundredths of °C**
+- Confirmed by Rixen's (Oct 2026): `runtime` is minutes; `glycolstate` is 0 =
+  not ready, 1 = ready (120-160°F), 2 = hot (>160°F); `heatsources` bits are
+  furnace 4, electric 2, engine 1 (8 = floor heat is observed, unconfirmed);
+  `fanspeed` is `Off`, a percentage or `Auto`
 - `currenttemp=-9990` / `currenthumidity=-999` mean no cabin sensor (parsed as
   `None`)
 - The device does not escape `&` in strings; `api.py` escapes it before parsing

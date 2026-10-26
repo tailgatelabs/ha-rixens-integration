@@ -60,7 +60,7 @@ Assistant:
 | Control the fan                       | Auto mode or manual speed (10-100%)                              |
 | Use quick temperature presets         | Away (freeze protection), Home, or Sleep                         |
 | Monitor room conditions               | Temperature and humidity sensors                                 |
-| See if hot water is ready             | Comfort Hot tank sensor (Off, Warming, Ready, Max)               |
+| See if hot water is ready             | Comfort Hot tank sensor (Not ready, Ready, Hot)                  |
 | Track heater diagnostics              | Battery voltage, flame temp, fuel consumption, runtime, and more |
 | Check connectivity                    | Connection status binary sensor                                  |
 | Get alerted to heater faults          | Heater fault problem sensor and fault-detected event             |

@@ -44,16 +44,19 @@
           "off": "mdi:radiator-off",
           "starting_cold": "mdi:fire-alert",
           "starting_warm": "mdi:fire-alert",
+          "cold_blow": "mdi:weather-windy",
+          "stabilizing_flame": "mdi:fire-alert",
           "running": "mdi:fire",
           "shutting_down": "mdi:fire-off",
-          "pre_start_purge": "mdi:weather-windy",
+          "shutting_down_to_standby": "mdi:fire-off",
+          "paused": "mdi:pause-circle-outline",
           "error": "mdi:alert-circle"
         }
       },
       "glycol_tank": {
         "default": "mdi:water-boiler",
         "state": {
-          "off": "mdi:water-boiler-off"
+          "not_ready": "mdi:water-boiler-off"
         }
       },
       "firmware_version": {
@@ -88,7 +91,7 @@
       "hot_water": {
         "default": "mdi:water-boiler",
         "state": {
-          "off": "mdi:water-boiler-off"
+          "not_ready": "mdi:water-boiler-off"
         }
       }
     }

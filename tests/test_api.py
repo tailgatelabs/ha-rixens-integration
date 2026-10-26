@@ -221,9 +221,9 @@ class TestParseStatus:
         assert _parse(xml).settings.glycol == 3
 
     def test_glycolstate_is_tank_status(self):
-        """glycolstate carries the 0-3 Comfort Hot tank status."""
-        xml = "<response><glycolstate>3</glycolstate></response>"
-        assert _parse(xml).glycol_state == 3
+        """glycolstate carries the 0-2 Comfort Hot tank status."""
+        xml = "<response><glycolstate>1</glycolstate></response>"
+        assert _parse(xml).glycol_state == 1
 
     def test_fanspeed_999_is_auto(self):
         xml = "<response><settings><fanspeed>999</fanspeed></settings></response>"

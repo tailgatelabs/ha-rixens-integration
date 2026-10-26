@@ -49,25 +49,28 @@ class RixensSensorEntityDescription(SensorEntityDescription):
     attributes_fn: Callable[[RixensData], dict[str, Any]] | None = None
 
 
-# Comfort Hot tank status, read from glycolstate (see RixensData.glycol_state):
-# 0 = Off, 1 = Warming, 2 = Ready (122°F), 3 = Max (158°F)
+# Comfort Hot tank status, read from glycolstate (see RixensData.glycol_state),
+# as confirmed by Rixen's (#72): 0 = not up to temp, 1 = ready (yellow dot,
+# 120-160°F), 2 = above 160°F (red dot)
 GLYCOL_TANK_STATES: dict[int, str] = {
-    0: "off",
-    1: "warming",
-    2: "ready",
-    3: "max",
+    0: "not_ready",
+    1: "ready",
+    2: "hot",
 }
 
-# Heater operating state, read from heaterstate. The docs only define 200 as the
-# error state; the rest is inferred from live HW2-1.209 data and unconfirmed by
-# Rixen's (see #71). Any other value is reported as unknown.
+# Heater operating state, read from heaterstate. Names are from Rixen's list
+# (#71), which carries over Eberspächer's state codes and may not be complete;
+# 200 is the documented error state. Any other value is reported as unknown.
 HEATER_STATES: dict[int, str] = {
     0: "off",
-    10: "starting_cold",  # Glow and ignition from a cold combustion chamber
-    12: "starting_warm",  # Same, restarting while the heater is still warm
-    20: "running",  # Flame confirmed, burning at full or part load
-    30: "shutting_down",  # Fuel off, burner motor purging while it cools
-    40: "pre_start_purge",  # Restart while still hot: motor cools it, no fuel
+    10: "starting_cold",  # Initial cold start: glow plug warming, pump priming
+    12: "starting_warm",  # Warm start
+    13: "cold_blow",  # Cold blow
+    15: "stabilizing_flame",  # Flame stabilization window
+    20: "running",
+    30: "shutting_down",  # After run to shutdown
+    31: "shutting_down_to_standby",  # After run to standby
+    40: "paused",  # Pause; seen before a start requested while still hot
     200: "error",
 }
 

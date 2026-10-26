@@ -71,10 +71,10 @@ class TestSensorEntity:
 
     @pytest.mark.parametrize(
         ("raw", "expected"),
-        [(0, "off"), (1, "warming"), (2, "ready"), (3, "max"), (7, None)],
+        [(0, "not_ready"), (1, "ready"), (2, "hot"), (3, None)],
     )
     def test_glycol_tank_state(self, mock_coordinator, raw, expected):
-        """glycolstate maps 0-3 to named states; others are unknown."""
+        """glycolstate maps 0-2 to named states; others are unknown."""
         mock_coordinator.data = make_rixens_data(glycol_state=raw)
         sensor = self._make_sensor(mock_coordinator, "glycol_tank")
         assert sensor.native_value == expected
@@ -82,7 +82,7 @@ class TestSensorEntity:
     def test_glycol_tank_is_enum_with_options(self, mock_coordinator):
         sensor = self._make_sensor(mock_coordinator, "glycol_tank")
         assert sensor.device_class == SensorDeviceClass.ENUM
-        assert sensor.options == ["off", "warming", "ready", "max"]
+        assert sensor.options == ["not_ready", "ready", "hot"]
         assert sensor.entity_category is None  # shown on dashboards by default
 
     @pytest.mark.parametrize(
@@ -91,11 +91,14 @@ class TestSensorEntity:
             (0, "off"),
             (10, "starting_cold"),
             (12, "starting_warm"),
+            (13, "cold_blow"),
+            (15, "stabilizing_flame"),
             (20, "running"),
             (30, "shutting_down"),
-            (40, "pre_start_purge"),
+            (31, "shutting_down_to_standby"),
+            (40, "paused"),
             (200, "error"),
-            (15, None),
+            (11, None),
         ],
     )
     def test_heater_state(self, mock_coordinator, raw, expected):
@@ -112,9 +115,12 @@ class TestSensorEntity:
             "off",
             "starting_cold",
             "starting_warm",
+            "cold_blow",
+            "stabilizing_flame",
             "running",
             "shutting_down",
-            "pre_start_purge",
+            "shutting_down_to_standby",
+            "paused",
             "error",
         ]
         assert sensor.entity_category == EntityCategory.DIAGNOSTIC

@@ -8,6 +8,18 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** the Comfort Hot tank sensor now reports Not ready, Ready
+  (120–160°F) or Hot (above 160°F), following Rixen's description of
+  `glycolstate` (#72). It previously reported Off, Warming, Ready or Max, so
+  `glycolstate=1` showed as Warming instead of Ready and `2` as Ready instead of
+  Hot. Automations that compare its state must be updated.
+- **Breaking:** the Heater state sensor uses Rixen's state names (#71). `40` is
+  now Paused (`paused`) instead of Purging before start (`pre_start_purge`), and
+  Cold blow (13), Stabilizing flame (15) and Shutting down to standby (31) are
+  new states that previously reported unknown.
+
 ## [1.2.1] - 2026-10-25
 
 ### Added
