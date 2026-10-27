@@ -36,6 +36,17 @@ class TestSensorDescriptions:
             value = desc.value_fn(data)
             assert isinstance(value, (int, float, str, type(None)))
 
+    def test_numeric_sensors_have_display_precision(self):
+        """Every numeric sensor ships a default precision (#84)."""
+        data = make_rixens_data()
+        for desc in SENSOR_DESCRIPTIONS:
+            if desc.device_class == SensorDeviceClass.ENUM or isinstance(
+                desc.value_fn(data), str
+            ):
+                assert desc.suggested_display_precision is None, desc.key
+            else:
+                assert desc.suggested_display_precision is not None, desc.key
+
 
 class TestSensorEntity:
     """Tests for the RixensSensor entity class."""

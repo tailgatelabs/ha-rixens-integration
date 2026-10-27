@@ -19,6 +19,8 @@ and this project adheres to
   now Paused (`paused`) instead of Purging before start (`pre_start_purge`), and
   Cold blow (13), Stabilizing flame (15) and Shutting down to standby (31) are
   new states that previously reported unknown.
+- Numeric sensors now have a default display precision, so values like
+  temperature and battery voltage show rounded without manual setup (#84).
 
 ## [1.2.1] - 2026-10-25
 
