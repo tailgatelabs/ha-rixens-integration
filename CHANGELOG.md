@@ -8,6 +8,11 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- Numeric sensors now have a default display precision, so values like
+  temperature and battery voltage show rounded without manual setup (#84).
+
 ## [1.2.1] - 2026-10-25
 
 ### Added
