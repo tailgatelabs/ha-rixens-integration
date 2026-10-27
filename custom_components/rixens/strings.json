@@ -87,9 +87,12 @@
           "off": "Off",
           "starting_cold": "Starting (cold)",
           "starting_warm": "Starting (warm)",
+          "cold_blow": "Cold blow",
+          "stabilizing_flame": "Stabilizing flame",
           "running": "Running",
           "shutting_down": "Shutting down",
-          "pre_start_purge": "Purging before start",
+          "shutting_down_to_standby": "Shutting down to standby",
+          "paused": "Paused",
           "error": "Error"
         },
         "state_attributes": {
@@ -101,10 +104,9 @@
       "glycol_tank": {
         "name": "Comfort Hot tank",
         "state": {
-          "off": "Off",
-          "warming": "Warming",
+          "not_ready": "Not ready",
           "ready": "Ready",
-          "max": "Max"
+          "hot": "Hot"
         }
       },
       "firmware_version": {

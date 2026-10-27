@@ -44,6 +44,19 @@ The manufacturer's field and command descriptions are kept as comments in
 current behaviour; see
 [#72](https://github.com/tailgatelabs/ha-rixens-integration/issues/72).
 
+Clarifications from Rixen's (October 2026) that differ from or add to the docs:
+
+- `heater1.runtime` is in **minutes**, not hours (their web portal shows hours)
+- `glycolstate` is 0 = not up to temp, 1 = ready (yellow, 120–160°F), 2 = above
+  160°F (red). `settings.glycol` may no longer be used
+- `settings.heatsources` is a bitmask of active heat sources only: furnace = 4,
+  electric = 2, engine = 1. Live data also sets 8 while floor heat is active,
+  which their answer does not cover
+- `settings.fanspeed` is `Off`, a percentage, or `Auto` (not `999`). `act=2`
+  with `val=0` sets a 0% speed, and values outside 0–100 are clamped
+- `heaterstate` values come from Eberspächer's state codes; see the Heater State
+  sensor below
+
 > "The controller is state-owned. Command endpoints submit intent, but actual
 > system state must be verified by reading status.xml."
 
@@ -106,9 +119,9 @@ water timer) are not implemented yet
 
 #### Comfort Hot
 
-- **Comfort Hot tank** — Tank status (`glycolstate`): Off, Warming, Ready
-  (122°F) or Max (158°F). Unknown for any other value. The official docs give
-  this 0–3 scale to `settings.glycol`, but live data matches `glycolstate` (see
+- **Comfort Hot tank** — Tank status (`glycolstate`): Not ready (0), Ready (1,
+  120–160°F, the controller's yellow dot) or Hot (2, above 160°F, red dot), as
+  confirmed by Rixen's. Unknown for any other value (see
   [#72](https://github.com/tailgatelabs/ha-rixens-integration/issues/72)).
 
 #### Heater Diagnostics
@@ -130,17 +143,19 @@ water timer) are not implemented yet
 
 #### System Information
 
-- **Heater State** — Heater operating state (`heaterstate`): Off (0),
-  Starting (cold) (10), Starting (warm) (12), Running (20), Shutting down (30),
-  Purging before start (40) or Error (200). Unknown for any other value; the
-  raw number is in the `raw_state` attribute. Only 200 is documented. The other values are inferred
-  from live data (see
-  [#71](https://github.com/tailgatelabs/ha-rixens-integration/issues/71)):
-  10 and 12 are the glow and ignition phase, 12 when the heater is still warm
-  from a recent run; 30 is the afterrun, with fuel off and the burner motor
-  purging for about 95 s; 40 comes before a start requested while the heater
-  is still hot, with the burner motor near full speed, no fuel and no glow
-  plug for about 75 s, then 12.
+- **Heater State** — Heater operating state (`heaterstate`): Off (0), Starting
+  (cold) (10), Starting (warm) (12), Cold blow (13), Stabilizing flame (15),
+  Running (20), Shutting down (30), Shutting down to standby (31), Paused (40)
+  or Error (200). Unknown for any other value; the raw number is in the
+  `raw_state` attribute. 200 is documented; the other names come from Rixen's,
+  who note the list carries over Eberspächer's state codes and may not be
+  complete (see
+  [#71](https://github.com/tailgatelabs/ha-rixens-integration/issues/71)). In
+  live data, 10 and 12 are the glow and ignition phase (12 when the heater is
+  still warm from a recent run), 30 is the afterrun with fuel off and the burner
+  motor purging for about 95 s, and 40 comes before a start requested while the
+  heater is still hot, with the burner motor near full speed and no fuel for
+  about 75 s, then 12.
 - **Firmware Version** — Main controller firmware version
 - **Heat Firmware Version** — Heater module firmware version
 
@@ -252,7 +267,12 @@ Firmware versions known to work:
 ```xml
 <version>HW2-1.205 2025_11_20 RIXENS</version>
 <heatversion>1.06 2025-11-21 PID</heatversion>
+
+<version>HW2-1.209 2026_07_17 RIXENS</version>
+<heatversion>1.07 2026-07-09</heatversion>
 ```
+
+HW2-1.209 with heat 1.07 is Rixen's latest stable release (October 2026).
 
 Sample `status.xml` files are kept at the repository root and used as test
 fixtures: `example_mcs7_status.xml` (HW2-1.205, from a real device) and

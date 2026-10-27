@@ -45,7 +45,9 @@ class Command(IntEnum):
     """
 
     TARGET_TEMPERATURE = 1  # Target temperature (tenths °C)
-    FAN_SPEED = 2  # Fan speed (0-100, 999 = Auto)
+    # Fan speed (0-100, 999 = Auto). 0 sets 0% (it does not turn the fan off;
+    # that is FAN_STATE); values outside 0-100 are clamped, per Rixen's (#72)
+    FAN_SPEED = 2
     ENGINE_ADD_HEAT = 3  # Engine add heat
     ELECTRIC_HEAT = 4  # Electric heat
     FURNACE = 5  # Furnace
@@ -63,8 +65,8 @@ class RixensHeaterData:
 
     heat_on: bool  # Furnace commanded state (0 = Off, 1 = On)
     battery_voltage: float  # Battery voltage reading (scale undocumented, see #72)
-    # ECU lifetime operating time in minutes. Docs say "hours", but live data
-    # (+3 per ~155 s of uptime while running) shows minutes, see #72
+    # ECU lifetime operating time in minutes. The docs say "hours"; Rixen's
+    # confirmed minutes (their web portal shows hours), see #72
     runtime: int
     pid_speed: int  # PID controller speed/effort
     flame_temp: float  # Furnace flame temperature. Note: Divide by 100 for °C
@@ -74,7 +76,8 @@ class RixensHeaterData:
     atmospheric_pressure: float
     dosing_pump: float  # Dosing pump (Hz); raw value is divided by 10, see #72
     burner_motor: int  # Burner motor speed
-    heater_state: int  # Eberspacher defined state (0-30, 200 error state)
+    # Eberspacher defined state (0-40, 200 error state), see HEATER_STATES
+    heater_state: int
     glow_pin: int  # Glow pin (percent)
     # Furnace in preheat mode (This is an Eberspacher feature, not to be
     # confused with Rixen Preheat Engine)
@@ -87,7 +90,8 @@ class RixensSettings:
     """Settings data from the <settings> element."""
 
     setpoint: float  # Target cabin temperature. Note: Divide by 10 for °C
-    fan_speed: str  # Current fan speed percentage 0-100, or DEVICE_FAN_AUTO
+    # "Off", a manual speed percentage (0-100) or "Auto" (not 999), per Rixen's
+    fan_speed: str
     pump_state: bool  # Circulation pump operational state (0 = Off, 1 = On)
     fan_state: bool  # Air handler fan operational state (0 = Off, 1 = On)
     # "<x> button showing in Rixen web portal (0 = Off, 1 = On)"
@@ -99,10 +103,13 @@ class RixensSettings:
     fan_enabled: bool  # Air handler fan toggle state (0 = Off, 1 = On)
     therm_enabled: bool  # Thermostat toggle state (0 = Off, 1 = On)
     # Docs: "Comfort Hot tank status: 0 = Off, 1 = Warming, 2 = Ready (122°F),
-    # 3 = Max (158°F)". Live data shows the tank status is in glycolstate
-    # instead; the meaning of this field is unknown, see #72
+    # 3 = Max (158°F)". The tank status is in glycolstate instead; Rixen's say
+    # this field may no longer be used, see #72
     glycol: int
-    heatsources: int  # Bitmask: furnace = 4, electric = 2, engine = 1
+    # Bitmask of active heat sources: furnace = 4, electric = 2, engine = 1
+    # (confirmed by Rixen's). Live data also sets 8 while floor heat is
+    # active, which their answer does not cover, see #72
+    heatsources: int
     # Hardware state of each heat source (0 = Off, 1 = ready, 2 = active)
     aux_src: int
     floor_src: int
@@ -120,14 +127,14 @@ class RixensData:
     heat_version: str  # Heating logic version string
     uptime: int  # Controller awake time in seconds (Resets on power cycle)
     system_heat: bool  # Overall system heat state (0 = Off, 1 = On)
-    heater_state: int  # Eberspacher defined state (0-30, 200 error state)
+    # Eberspacher defined state (0-40, 200 error state), see HEATER_STATES
+    heater_state: int
     zone2_state: int  # State of zone 2
     zone3_state: int  # State of zone 3
     engine_state: int  # Engine add heat enabled (0 = Off, 1 = On)
-    # Comfort Hot tank status: 0 = Off, 1 = Warming, 2 = Ready (122°F),
-    # 3 = Max (158°F). The docs list this as "Glycol tank up to temp (0 = No,
-    # 1 = Yes)" and give the 0-3 scale to settings.glycol, but a controller
-    # screen showing Ready matched glycolstate=2 with glycol=0, see #72
+    # Glycol tank up to temp. The docs say "0 = No, 1 = Yes"; Rixen's added
+    # 2: 0 = No, 1 = Yes (yellow dot, 120-160°F), 2 = Yes (red dot, above
+    # 160°F), see #72
     glycol_state: int
     # Current cabin temperature in °C, None when no sensor is connected
     current_temp: float | None
@@ -287,7 +294,7 @@ class RixensApi:
 
         settings_elem = find("settings")
         fan_speed = get_text(settings_elem, "fanspeed", DEVICE_FAN_AUTO)
-        # Firmware 1.205 reports "Auto"; the docs specify 999 = Auto
+        # Firmware reports "Auto"; the docs specify 999 = Auto, so accept both
         if fan_speed == str(FAN_SPEED_AUTO):
             fan_speed = DEVICE_FAN_AUTO
 
