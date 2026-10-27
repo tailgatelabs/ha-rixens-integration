@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.const import EntityCategory, UnitOfTime
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import EntityCategory, UnitOfTime, UnitOfVolume
 
 from custom_components.rixens.const import CONF_FUEL_DOSE, DEFAULT_FUEL_DOSE
 from custom_components.rixens.faults import FAULT_OPTIONS
 from custom_components.rixens.sensor import (
+    FUEL_USED_MAX_GAP,
     SENSOR_DESCRIPTIONS,
+    RixensFuelUsedSensor,
     RixensSensor,
     RixensSensorEntityDescription,
 )
@@ -287,3 +289,132 @@ class TestSensorEntity:
         for desc in SENSOR_DESCRIPTIONS:
             sensor = RixensSensor(mock_coordinator, desc)
             assert sensor.native_value is not None
+
+
+class TestFuelUsedSensor:
+    """Tests for the cumulative fuel used sensor (#86)."""
+
+    # 1.6 Hz at the default dose
+    RATE = 1.6 * DEFAULT_FUEL_DOSE * 3600  # mL/h
+
+    @pytest.fixture
+    def clock(self):
+        with patch("custom_components.rixens.sensor.monotonic") as clock:
+            clock.return_value = 1000.0
+            yield clock
+
+    def _make_sensor(self, mock_coordinator) -> RixensFuelUsedSensor:
+        sensor = RixensFuelUsedSensor(mock_coordinator)
+        sensor.async_write_ha_state = MagicMock()
+        return sensor
+
+    def _poll(self, sensor, mock_coordinator, clock, seconds, **data):
+        clock.return_value += seconds
+        mock_coordinator.data = make_rixens_data(**data)
+        sensor._handle_coordinator_update()
+
+    def test_attributes(self, mock_coordinator):
+        sensor = self._make_sensor(mock_coordinator)
+        assert sensor.unique_id == "test_entry_id_fuel_used"
+        assert sensor.translation_key == "fuel_used"
+        assert sensor.device_class == SensorDeviceClass.VOLUME
+        assert sensor.state_class == SensorStateClass.TOTAL_INCREASING
+        assert sensor.native_unit_of_measurement == UnitOfVolume.MILLILITERS
+        assert sensor.entity_category is None
+        assert sensor.native_value == 0
+
+    def test_accumulates_previous_rate(self, mock_coordinator, clock):
+        sensor = self._make_sensor(mock_coordinator)
+        sensor._handle_coordinator_update()  # baseline at 1.6 Hz
+        self._poll(sensor, mock_coordinator, clock, 5, dosing_pump=0.0)
+        # Left sum: the 5 s before the pump stopped count at 1.6 Hz
+        assert sensor.native_value == round(self.RATE * 5 / 3600, 2)
+        self._poll(sensor, mock_coordinator, clock, 5, dosing_pump=0.0)
+        assert sensor.native_value == round(self.RATE * 5 / 3600, 2)
+        sensor.async_write_ha_state.assert_called()
+
+    def test_uses_configured_dose(self, mock_coordinator, clock):
+        mock_coordinator.config_entry.options = {CONF_FUEL_DOSE: 0.05}
+        sensor = self._make_sensor(mock_coordinator)
+        sensor._handle_coordinator_update()
+        self._poll(sensor, mock_coordinator, clock, 3600)
+        # An hour gap is skipped, so poll in steps instead
+        assert sensor.native_value == 0
+        for _ in range(720):
+            self._poll(sensor, mock_coordinator, clock, 5)
+        assert sensor.native_value == pytest.approx(1.6 * 0.05 * 3600, abs=0.01)
+
+    def test_skips_stale_data_from_failed_poll(self, mock_coordinator, clock):
+        sensor = self._make_sensor(mock_coordinator)
+        sensor._handle_coordinator_update()
+        # A failed poll returns the same data object: nothing is added yet
+        clock.return_value += 5
+        sensor._handle_coordinator_update()
+        assert sensor.native_value == 0
+        # The next fresh poll counts the whole 10 s
+        self._poll(sensor, mock_coordinator, clock, 5)
+        assert sensor.native_value == round(self.RATE * 10 / 3600, 2)
+
+    def test_skips_long_gap(self, mock_coordinator, clock):
+        sensor = self._make_sensor(mock_coordinator)
+        sensor._handle_coordinator_update()
+        self._poll(sensor, mock_coordinator, clock, FUEL_USED_MAX_GAP + 1)
+        assert sensor.native_value == 0
+        self._poll(sensor, mock_coordinator, clock, 5)
+        assert sensor.native_value == round(self.RATE * 5 / 3600, 2)
+
+    def test_no_data(self, mock_coordinator, clock):
+        mock_coordinator.data = None
+        sensor = self._make_sensor(mock_coordinator)
+        sensor._handle_coordinator_update()
+        assert sensor.native_value == 0
+
+    @pytest.mark.parametrize(
+        ("restored", "expected"), [("1234.5", 1234.5), (None, 0), ("bad", 0)]
+    )
+    async def test_restores_total(self, mock_coordinator, clock, restored, expected):
+        sensor = self._make_sensor(mock_coordinator)
+        last = MagicMock(native_value=restored)
+        with (
+            patch(
+                "homeassistant.helpers.update_coordinator.CoordinatorEntity"
+                ".async_added_to_hass",
+                AsyncMock(),
+            ),
+            patch.object(
+                sensor, "async_get_last_sensor_data", AsyncMock(return_value=last)
+            ),
+        ):
+            await sensor.async_added_to_hass()
+        assert sensor.native_value == expected
+        # The current poll is the baseline: time before the restart isn't counted
+        self._poll(sensor, mock_coordinator, clock, 5)
+        assert sensor.native_value == round(expected + self.RATE * 5 / 3600, 2)
+
+    async def test_nothing_to_restore(self, mock_coordinator):
+        sensor = self._make_sensor(mock_coordinator)
+        with (
+            patch(
+                "homeassistant.helpers.update_coordinator.CoordinatorEntity"
+                ".async_added_to_hass",
+                AsyncMock(),
+            ),
+            patch.object(
+                sensor, "async_get_last_sensor_data", AsyncMock(return_value=None)
+            ),
+        ):
+            await sensor.async_added_to_hass()
+        assert sensor.native_value == 0
+
+
+async def test_setup_entry_adds_fuel_used(mock_coordinator):
+    from custom_components.rixens.const import DOMAIN
+    from custom_components.rixens.sensor import async_setup_entry
+
+    hass = MagicMock()
+    hass.data = {DOMAIN: {"test_entry_id": mock_coordinator}}
+    add_entities = MagicMock()
+    await async_setup_entry(hass, mock_coordinator.config_entry, add_entities)
+    entities = add_entities.call_args.args[0]
+    assert len(entities) == len(SENSOR_DESCRIPTIONS) + 1
+    assert isinstance(entities[-1], RixensFuelUsedSensor)

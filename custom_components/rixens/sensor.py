@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from time import monotonic
 from typing import Any
 
 from homeassistant.components.sensor import (
+    RestoreSensor,
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
@@ -22,7 +24,7 @@ from homeassistant.const import (
     UnitOfTime,
     UnitOfVolume,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -38,6 +40,18 @@ from .faults import (
     fault_key,
     stored_fault_codes,
 )
+
+
+# Longest gap between fresh polls that is still added to the fuel total. A
+# longer gap (device offline, Home Assistant busy) is skipped rather than
+# guessed at the last known pump rate.
+FUEL_USED_MAX_GAP = 60  # seconds
+
+
+def fuel_rate_ml_per_hour(data: RixensData, fuel_dose: float) -> float:
+    """Return the furnace fuel rate in mL/h from the dosing pump frequency."""
+    # dosing_pump (Hz) * fuel_dose (mL/dose) * 3600 (s/h)
+    return data.heater.dosing_pump * fuel_dose * 3600
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -271,9 +285,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up Rixens sensors based on a config entry."""
     coordinator: RixensCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities(
+    entities: list[SensorEntity] = [
         RixensSensor(coordinator, description) for description in SENSOR_DESCRIPTIONS
-    )
+    ]
+    entities.append(RixensFuelUsedSensor(coordinator))
+    async_add_entities(entities)
 
 
 class RixensSensor(CoordinatorEntity[RixensCoordinator], SensorEntity):
@@ -324,8 +340,76 @@ class RixensSensor(CoordinatorEntity[RixensCoordinator], SensorEntity):
                 fuel_dose: float = self.coordinator.config_entry.options.get(
                     CONF_FUEL_DOSE, DEFAULT_FUEL_DOSE
                 )
-                # Convert Hz to ml/h: dosing_pump (Hz) * fuel_dose (ml/dose) * 3600 (sec/hr)
-                return round(value * fuel_dose * 3600, 2)
+                return round(fuel_rate_ml_per_hour(self.coordinator.data, fuel_dose), 2)
 
             return value
         return None
+
+
+class RixensFuelUsedSensor(CoordinatorEntity[RixensCoordinator], RestoreSensor):
+    """Running total of the fuel the furnace has burned (#86).
+
+    Each fresh poll adds the previous poll's rate over the time since it (a
+    left Riemann sum, since the pump rate is a step function). The total is
+    restored across restarts and reloads.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "fuel_used"
+    _attr_device_class = SensorDeviceClass.VOLUME
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_native_unit_of_measurement = UnitOfVolume.MILLILITERS
+    _attr_suggested_unit_of_measurement = UnitOfVolume.LITERS
+    _attr_suggested_display_precision = 0
+
+    def __init__(self, coordinator: RixensCoordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_fuel_used"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.config_entry.entry_id)},
+        )
+        self._total = 0.0
+        # Last fresh poll: its data, when it arrived and its fuel rate (mL/h)
+        self._last_data: RixensData | None = None
+        self._last_time: float | None = None
+        self._last_rate = 0.0
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the total and start counting from the current poll."""
+        await super().async_added_to_hass()
+        if (last := await self.async_get_last_sensor_data()) is not None:
+            try:
+                self._total = float(last.native_value)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                pass
+        self._record_poll()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Add the fuel burned since the last fresh poll."""
+        self._record_poll()
+        super()._handle_coordinator_update()
+
+    def _record_poll(self) -> None:
+        data = self.coordinator.data
+        # A failed poll hands back the previous data object; skip it so the
+        # interval is counted once the next fresh poll arrives
+        if data is None or data is self._last_data:
+            return
+        now = monotonic()
+        if self._last_time is not None:
+            elapsed = now - self._last_time
+            if elapsed <= FUEL_USED_MAX_GAP:
+                self._total += self._last_rate * elapsed / 3600
+        fuel_dose: float = self.coordinator.config_entry.options.get(
+            CONF_FUEL_DOSE, DEFAULT_FUEL_DOSE
+        )
+        self._last_data = data
+        self._last_time = now
+        self._last_rate = fuel_rate_ml_per_hour(data, fuel_dose)
+
+    @property
+    def native_value(self) -> float:
+        """Return the fuel burned so far in mL."""
+        return round(self._total, 2)

@@ -62,6 +62,7 @@ Assistant:
 | Monitor room conditions               | Temperature and humidity sensors                                 |
 | See if hot water is ready             | Comfort Hot tank sensor (Not ready, Ready, Hot)                  |
 | Track heater diagnostics              | Battery voltage, flame temp, fuel consumption, runtime, and more |
+| See how much fuel the furnace burns   | Fuel used sensor (running total, by day, week or month)          |
 | Check connectivity                    | Connection status binary sensor                                  |
 | Get alerted to heater faults          | Heater fault problem sensor and fault-detected event             |
 
@@ -80,6 +81,22 @@ are all recorded, so you can spot problems before they leave you cold.
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/diagnostics-dark.png">
   <img alt="Diagnostics dashboard with heater temperature, fuel consumption and battery voltage history" src="docs/images/diagnostics-light.png">
 </picture>
+
+### Track fuel use
+
+The **Fuel used** sensor keeps a running total of the fuel the furnace has
+burned, and carries on across restarts. It's in litres by default; to show
+gallons, open the sensor's settings and change its unit.
+
+To chart fuel burned per day, add a **Statistics graph** card with the Fuel used
+sensor, **Stat type** set to **Change** and **Period** set to **Day** (or Week
+or Month).
+
+<!-- FUEL_USED_SCREENSHOT -->
+
+The total is only as accurate as the [fuel dose setting](#setting-up-presets),
+and counting starts when you install this version. If the heater is unreachable
+for more than a minute, that time isn't counted.
 
 ### Control it from your phone
 
