@@ -8,6 +8,11 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- Fuel used sensor: a running total of the fuel the furnace has burned, kept
+  across restarts, for charting fuel use per day, week or month (#86)
+
 ### Changed
 
 - **Breaking:** requires Home Assistant 2026.9 or later. The config flow now

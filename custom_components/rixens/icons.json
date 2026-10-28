@@ -38,6 +38,9 @@
       "fuel_consumption": {
         "default": "mdi:gas-station"
       },
+      "fuel_used": {
+        "default": "mdi:fuel"
+      },
       "heater_state": {
         "default": "mdi:radiator",
         "state": {
