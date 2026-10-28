@@ -89,14 +89,14 @@ only), sent via `RixensApi.send_command(Command.<NAME>, value)`
 
 ## Platforms
 
-| Platform      | Entities                                                                                                                   |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| climate       | Main thermostat (setpoint, current temp, fan modes, HVAC modes)                                                            |
-| sensor        | Temperature, humidity, Comfort Hot tank, battery voltage, flame/inlet/outlet temps, altitude, runtime, faults, diagnostics |
-| switch        | Furnace, floor heat, electric heat, hot water                                                                              |
-| fan           | Fan (on/off, 10-100% speed, auto preset)                                                                                   |
-| binary_sensor | Connection status, heater fault                                                                                            |
-| event         | Heater fault detected                                                                                                      |
+| Platform      | Entities                                                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| climate       | Main thermostat (setpoint, current temp, fan modes, HVAC modes)                                                                       |
+| sensor        | Temperature, humidity, Comfort Hot tank, battery voltage, flame/inlet/outlet temps, altitude, runtime, fuel used, faults, diagnostics |
+| switch        | Furnace, floor heat, electric heat, hot water                                                                                         |
+| fan           | Fan (on/off, 10-100% speed, auto preset)                                                                                              |
+| binary_sensor | Connection status, heater fault                                                                                                       |
+| event         | Heater fault detected                                                                                                                 |
 
 ## Development
 

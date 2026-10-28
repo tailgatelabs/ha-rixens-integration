@@ -81,6 +81,9 @@
       "fuel_consumption": {
         "name": "Fuel consumption"
       },
+      "fuel_used": {
+        "name": "Fuel used"
+      },
       "heater_state": {
         "name": "Heater state",
         "state": {
