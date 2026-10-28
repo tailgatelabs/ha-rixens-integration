@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 from homeassistant.components.climate import ClimateEntity
@@ -37,6 +38,7 @@ from .const import (
 )
 from .api import Command
 from .coordinator import RixensCoordinator
+from .optimistic import OptimisticState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,6 +73,8 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
     _attr_fan_modes = FAN_MODES
     _attr_preset_modes = [PRESET_AWAY, PRESET_HOME, PRESET_SLEEP]
+    # Already recorded by the humidity sensor
+    _unrecorded_attributes = frozenset({"current_humidity"})
     _attr_min_temp = TEMP_MIN
     _attr_max_temp = TEMP_MAX
     _attr_target_temperature_step = TEMP_STEP
@@ -97,6 +101,10 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
         self._last_heat_sources: dict[str, bool] | None = None
         # Track current preset mode
         self._preset_mode: str | None = None
+        # Commanded values shown until the device confirms them
+        self._optimistic_target = OptimisticState[float]()
+        self._optimistic_hvac = OptimisticState[HVACMode]()
+        self._optimistic_fan = OptimisticState[str]()
         # Load preset temperatures from options or use defaults
         self._load_preset_temps()
 
@@ -125,13 +133,19 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
     @property
     def target_temperature(self) -> float | None:
         """Return the target temperature."""
+        actual = None
         if self.coordinator.data:
-            return self.coordinator.data.settings.setpoint
-        return None
+            actual = round(self.coordinator.data.settings.setpoint, 1)
+        return self._optimistic_target.resolve(actual)
 
     @property
     def hvac_mode(self) -> HVACMode:
-        """Return the current HVAC mode.
+        """Return the current HVAC mode (the commanded one until confirmed)."""
+        return self._optimistic_hvac.resolve(self._device_hvac_mode) or HVACMode.OFF
+
+    @property
+    def _device_hvac_mode(self) -> HVACMode:
+        """Return the HVAC mode reported by the device.
 
         Mode is based on whether heat sources are enabled, not whether
         heat is currently being called for (system_heat).
@@ -190,7 +204,12 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
 
     @property
     def fan_mode(self) -> str | None:
-        """Return the current fan mode."""
+        """Return the current fan mode (the commanded one until confirmed)."""
+        return self._optimistic_fan.resolve(self._device_fan_mode)
+
+    @property
+    def _device_fan_mode(self) -> str | None:
+        """Return the fan mode reported by the device."""
         if not self.coordinator.data:
             return None
 
@@ -237,7 +256,25 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
             await self.coordinator.api.set_temperature(float(temperature))
             # Clear preset mode when manually setting temperature
             self._preset_mode = None
-            await self.coordinator.async_request_refresh()
+            self._commit(target=float(temperature))
+
+    def _commit(
+        self,
+        *,
+        target: float | None = None,
+        hvac: HVACMode | None = None,
+        fan: str | None = None,
+    ) -> None:
+        """Show commanded values now and confirm them via a delayed refresh."""
+        if target is not None:
+            self._optimistic_target.set(round(math.floor(target * 10 + 0.5) / 10, 1))
+        if hvac is not None:
+            self._optimistic_hvac.set(hvac)
+        if fan is not None:
+            self._optimistic_fan.set(fan)
+        if self.hass is not None:
+            self.async_write_ha_state()
+        self.coordinator.async_refresh_after_command()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new HVAC mode.
@@ -256,6 +293,10 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
                     await self.coordinator.api.send_command(Command.FURNACE, True)
                 if self._last_heat_sources.get("electric"):
                     await self.coordinator.api.send_command(Command.ELECTRIC_HEAT, True)
+                # Nothing remembered as enabled: no command was sent
+                if not any(self._last_heat_sources.values()):
+                    self.coordinator.async_refresh_after_command()
+                    return
             else:
                 # Default: enable furnace only
                 await self.coordinator.api.send_command(Command.FURNACE, True)
@@ -268,7 +309,7 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
                 }
             await self.coordinator.api.send_command(Command.FURNACE, False)
             await self.coordinator.api.send_command(Command.ELECTRIC_HEAT, False)
-        await self.coordinator.async_request_refresh()
+        self._commit(hvac=hvac_mode)
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
         """Set new fan mode.
@@ -279,16 +320,19 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
         """
         if fan_mode == FAN_MODE_OFF:
             await self.coordinator.api.send_command(Command.FAN_STATE, False)
+            shown = FAN_MODE_OFF
         elif fan_mode == FAN_MODE_AUTO:
             await self.coordinator.api.send_command(Command.FAN_STATE, True)
             await self.coordinator.api.send_command(Command.FAN_SPEED, FAN_SPEED_AUTO)
+            shown = FAN_MODE_AUTO
         else:
             speed = int(fan_mode)
             if not FAN_SPEED_MIN <= speed <= FAN_SPEED_MAX:
                 return
             await self.coordinator.api.send_command(Command.FAN_STATE, True)
             await self.coordinator.api.send_command(Command.FAN_SPEED, speed)
-        await self.coordinator.async_request_refresh()
+            shown = str(round(speed / FAN_SPEED_STEP) * FAN_SPEED_STEP)
+        self._commit(fan=shown)
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set new preset mode.
@@ -298,7 +342,7 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
         if preset_mode in self._preset_temps:
             await self.coordinator.api.set_temperature(self._preset_temps[preset_mode])
             self._preset_mode = preset_mode
-            await self.coordinator.async_request_refresh()
+            self._commit(target=self._preset_temps[preset_mode])
 
     async def async_turn_on(self) -> None:
         """Turn the heating system on.

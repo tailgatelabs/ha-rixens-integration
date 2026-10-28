@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 from homeassistant.components.fan import FanEntity, FanEntityFeature
@@ -22,6 +23,7 @@ from .const import (
     FAN_SPEED_MIN,
 )
 from .coordinator import RixensCoordinator
+from .optimistic import OptimisticState
 
 ORDERED_NAMED_FAN_SPEEDS = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 PRESET_MODE_AUTO = "auto"
@@ -69,6 +71,8 @@ class RixensFan(CoordinatorEntity[RixensCoordinator], FanEntity):
     _attr_translation_key = "fan"
     _attr_speed_count = 10
     _attr_preset_modes = [PRESET_MODE_AUTO]
+    # Changes on nearly every poll while running; pid_speed sensor has it
+    _unrecorded_attributes = frozenset({"actual_speed"})
     _attr_supported_features = (
         FanEntityFeature.SET_SPEED
         | FanEntityFeature.PRESET_MODE
@@ -79,41 +83,72 @@ class RixensFan(CoordinatorEntity[RixensCoordinator], FanEntity):
     def __init__(self, coordinator: RixensCoordinator) -> None:
         """Initialize the fan entity."""
         super().__init__(coordinator)
+        # Commanded (fan_state, fan_speed) shown until the device confirms it
+        self._optimistic = OptimisticState[tuple[bool, str]]()
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_fan"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.config_entry.entry_id)},
         )
 
+    def _effective_data(self) -> RixensData | None:
+        """Return device data with any unconfirmed commanded fan state applied."""
+        data = self.coordinator.data
+        if not data:
+            return None
+        actual = (data.settings.fan_state, data.settings.fan_speed)
+        fan_state, fan_speed = self._optimistic.resolve(actual) or actual
+        if (fan_state, fan_speed) == actual:
+            return data
+        return replace(
+            data,
+            settings=replace(data.settings, fan_state=fan_state, fan_speed=fan_speed),
+        )
+
+    def _apply_optimistic(self, fan_state: bool, speed: int | None = None) -> None:
+        """Show the commanded state now and confirm it via a delayed refresh.
+
+        ``speed`` is the commanded act=2 value (None leaves the speed as is).
+        """
+        data = self.coordinator.data
+        fan_speed = data.settings.fan_speed if data else DEVICE_FAN_OFF
+        if speed == FAN_SPEED_AUTO:
+            fan_speed = DEVICE_FAN_AUTO
+        elif speed is not None:
+            fan_speed = str(speed)
+        self._optimistic.set((fan_state, fan_speed))
+        if self.hass is not None:
+            self.async_write_ha_state()
+        self.coordinator.async_refresh_after_command()
+
     @property
     def is_on(self) -> bool | None:
         """Return true if the fan is on."""
-        if not self.coordinator.data:
+        if not (data := self._effective_data()):
             return None
-        return self.coordinator.data.settings.fan_state
+        return data.settings.fan_state
 
     @property
     def percentage(self) -> int | None:
         """Return the current speed as a percentage."""
-        if not self.coordinator.data:
+        if not (data := self._effective_data()):
             return None
-        return compute_fan_speed(self.coordinator.data)
+        return compute_fan_speed(data)
 
     @property
     def preset_mode(self) -> str | None:
         """Return the current preset mode."""
-        if not self.coordinator.data:
+        if not (data := self._effective_data()):
             return None
-        if self.coordinator.data.settings.fan_speed == DEVICE_FAN_AUTO:
+        if data.settings.fan_speed == DEVICE_FAN_AUTO:
             return PRESET_MODE_AUTO
         return None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional state attributes."""
-        if not self.coordinator.data:
+        if not (data := self._effective_data()):
             return {}
 
-        data = self.coordinator.data
         fan_speed = data.settings.fan_speed
         is_off = not data.settings.fan_state
         is_auto = fan_speed == DEVICE_FAN_AUTO
@@ -146,21 +181,23 @@ class RixensFan(CoordinatorEntity[RixensCoordinator], FanEntity):
     ) -> None:
         """Turn on the fan."""
         await self.coordinator.api.send_command(Command.FAN_STATE, True)
+        speed: int | None = None
 
         if preset_mode == PRESET_MODE_AUTO:
-            await self.coordinator.api.send_command(Command.FAN_SPEED, FAN_SPEED_AUTO)
+            speed = FAN_SPEED_AUTO
+            await self.coordinator.api.send_command(Command.FAN_SPEED, speed)
         elif percentage is not None:
             speed = percentage_to_ordered_list_item(
                 ORDERED_NAMED_FAN_SPEEDS, percentage
             )
             await self.coordinator.api.send_command(Command.FAN_SPEED, speed)
 
-        await self.coordinator.async_request_refresh()
+        self._apply_optimistic(True, speed)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn off the fan."""
         await self.coordinator.api.send_command(Command.FAN_STATE, False)
-        await self.coordinator.async_request_refresh()
+        self._apply_optimistic(False)
 
     async def async_set_percentage(self, percentage: int) -> None:
         """Set the speed of the fan."""
@@ -171,11 +208,11 @@ class RixensFan(CoordinatorEntity[RixensCoordinator], FanEntity):
         speed = percentage_to_ordered_list_item(ORDERED_NAMED_FAN_SPEEDS, percentage)
         await self.coordinator.api.send_command(Command.FAN_STATE, True)
         await self.coordinator.api.send_command(Command.FAN_SPEED, speed)
-        await self.coordinator.async_request_refresh()
+        self._apply_optimistic(True, speed)
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set the preset mode of the fan."""
         if preset_mode == PRESET_MODE_AUTO:
             await self.coordinator.api.send_command(Command.FAN_STATE, True)
             await self.coordinator.api.send_command(Command.FAN_SPEED, FAN_SPEED_AUTO)
-            await self.coordinator.async_request_refresh()
+            self._apply_optimistic(True, FAN_SPEED_AUTO)

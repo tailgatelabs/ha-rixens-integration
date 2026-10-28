@@ -115,12 +115,13 @@ def make_rixens_data(
     faults: dict[str, int] | None = None,
     version: str = "HW2-1.205 2025_11_20 RIXENS",
     heat_version: str = "1.06 2025-11-21 PID",
+    uptime: int = 146691,
 ) -> RixensData:
     """Create a RixensData instance with sensible defaults for testing."""
     return RixensData(
         version=version,
         heat_version=heat_version,
-        uptime=146691,
+        uptime=uptime,
         system_heat=system_heat,
         heater_state=heater_state,
         zone2_state=0,
@@ -206,6 +207,6 @@ def mock_coordinator(mock_config_entry, mock_api) -> MagicMock:
     coordinator.data = make_rixens_data()
     coordinator.config_entry = mock_config_entry
     coordinator.api = mock_api
-    coordinator.async_request_refresh = AsyncMock()
+    coordinator.async_refresh_after_command = MagicMock()
     coordinator.is_available = True
     return coordinator

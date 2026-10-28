@@ -16,7 +16,7 @@ from custom_components.rixens.config_flow import (
     RixensOptionsFlowHandler,
     validate_input,
 )
-from custom_components.rixens.const import CONF_HOST, CONF_PORT, DEFAULT_PORT, DOMAIN
+from custom_components.rixens.const import CONF_HOST, CONF_PORT, DEFAULT_PORT
 
 from .conftest import make_rixens_data
 
@@ -33,11 +33,10 @@ class TestValidateInput:
         mock_hass = MagicMock(spec=HomeAssistant)
         data = {CONF_HOST: "192.168.1.100", CONF_PORT: DEFAULT_PORT}
 
-        with patch(
-            "custom_components.rixens.config_flow.async_get_clientsession"
-        ), patch(
-            "custom_components.rixens.config_flow.RixensApi"
-        ) as mock_api_cls:
+        with (
+            patch("custom_components.rixens.config_flow.async_get_clientsession"),
+            patch("custom_components.rixens.config_flow.RixensApi") as mock_api_cls,
+        ):
             mock_api = AsyncMock()
             mock_api.get_status = AsyncMock(return_value=make_rixens_data())
             mock_api_cls.return_value = mock_api
@@ -50,11 +49,10 @@ class TestValidateInput:
         mock_hass = MagicMock(spec=HomeAssistant)
         data = {CONF_HOST: "192.168.1.100", CONF_PORT: DEFAULT_PORT}
 
-        with patch(
-            "custom_components.rixens.config_flow.async_get_clientsession"
-        ), patch(
-            "custom_components.rixens.config_flow.RixensApi"
-        ) as mock_api_cls:
+        with (
+            patch("custom_components.rixens.config_flow.async_get_clientsession"),
+            patch("custom_components.rixens.config_flow.RixensApi") as mock_api_cls,
+        ):
             mock_api = AsyncMock()
             mock_api.get_status = AsyncMock(
                 side_effect=RixensConnectionError("timeout")
@@ -85,13 +83,15 @@ class TestConfigFlow:
         flow = RixensConfigFlow()
         flow.hass = MagicMock(spec=HomeAssistant)
         flow._async_abort_entries_match = MagicMock()
-        flow.async_create_entry = MagicMock(return_value={"type": FlowResultType.CREATE_ENTRY})
+        flow.async_create_entry = MagicMock(
+            return_value={"type": FlowResultType.CREATE_ENTRY}
+        )
 
         with patch(
             "custom_components.rixens.config_flow.validate_input",
             return_value={"title": "Rixens (192.168.1.100)", "version": "1.0"},
         ):
-            result = await flow.async_step_user(
+            await flow.async_step_user(
                 user_input={CONF_HOST: "192.168.1.100", CONF_PORT: DEFAULT_PORT}
             )
             flow.async_create_entry.assert_called_once_with(
@@ -109,7 +109,7 @@ class TestConfigFlow:
             "custom_components.rixens.config_flow.validate_input",
             side_effect=CannotConnect,
         ):
-            result = await flow.async_step_user(
+            await flow.async_step_user(
                 user_input={CONF_HOST: "192.168.1.100", CONF_PORT: DEFAULT_PORT}
             )
             flow.async_show_form.assert_called_once()
@@ -126,7 +126,7 @@ class TestConfigFlow:
             "custom_components.rixens.config_flow.validate_input",
             side_effect=RuntimeError("unexpected"),
         ):
-            result = await flow.async_step_user(
+            await flow.async_step_user(
                 user_input={CONF_HOST: "192.168.1.100", CONF_PORT: DEFAULT_PORT}
             )
             flow.async_show_form.assert_called_once()
@@ -153,7 +153,9 @@ class TestOptionsFlow:
         handler.async_show_form = MagicMock(return_value={"type": FlowResultType.FORM})
 
         with patch.object(
-            type(handler), "config_entry", new_callable=lambda: property(lambda self: mock_entry)
+            type(handler),
+            "config_entry",
+            new_callable=lambda: property(lambda self: mock_entry),
         ):
             await handler.async_step_init(user_input=None)
         handler.async_show_form.assert_called_once()

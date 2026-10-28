@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from time import monotonic
 from typing import Any
 
@@ -28,6 +29,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .api import RixensData
 from .const import CONF_FUEL_DOSE, DEFAULT_FUEL_DOSE, DOMAIN
@@ -40,7 +42,6 @@ from .faults import (
     fault_key,
     stored_fault_codes,
 )
-
 
 # Longest gap between fresh polls that is still added to the fuel total. A
 # longer gap (device offline, Home Assistant busy) is skipped rather than
@@ -58,8 +59,8 @@ def fuel_rate_ml_per_hour(data: RixensData, fuel_dose: float) -> float:
 class RixensSensorEntityDescription(SensorEntityDescription):
     """Describes a Rixens sensor entity."""
 
-    value_fn: Callable[[RixensData], float | int | str | None]
-    icon_fn: Callable[[float | int | str | None], str | None] | None = None
+    value_fn: Callable[[RixensData], datetime | float | int | str | None]
+    icon_fn: Callable[[datetime | float | int | str | None], str | None] | None = None
     attributes_fn: Callable[[RixensData], dict[str, Any]] | None = None
 
 
@@ -87,6 +88,17 @@ HEATER_STATES: dict[int, str] = {
     40: "paused",  # Pause; seen before a start requested while still hot
     200: "error",
 }
+
+
+def boot_time(data: RixensData) -> datetime:
+    """Return when the controller booted, rounded to the minute.
+
+    Derived from the uptime counter so the state only changes on reboot
+    instead of on every poll.
+    """
+    boot = dt_util.utcnow() - timedelta(seconds=data.uptime)
+    return (boot + timedelta(seconds=30)).replace(second=0, microsecond=0)
+
 
 SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
     RixensSensorEntityDescription(
@@ -121,11 +133,13 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         key="flame_temperature",
         translation_key="flame_temperature",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        suggested_display_precision=1,
+        suggested_display_precision=0,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda data: data.heater.flame_temp,
+        entity_registry_enabled_default=False,
+        # Reported in hundredths of °C; rounded so it isn't recorded every poll
+        value_fn=lambda data: round(data.heater.flame_temp),
     ),
     RixensSensorEntityDescription(
         key="inlet_temperature",
@@ -135,7 +149,8 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda data: data.heater.inlet_temp,
+        entity_registry_enabled_default=False,
+        value_fn=lambda data: round(data.heater.inlet_temp, 1),
     ),
     RixensSensorEntityDescription(
         key="outlet_temperature",
@@ -145,7 +160,8 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda data: data.heater.outlet_temp,
+        entity_registry_enabled_default=False,
+        value_fn=lambda data: round(data.heater.outlet_temp, 1),
     ),
     RixensSensorEntityDescription(
         key="atmospheric_pressure",
@@ -171,20 +187,17 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
     RixensSensorEntityDescription(
         key="system_uptime",
         translation_key="system_uptime",
-        native_unit_of_measurement=UnitOfTime.SECONDS,
-        suggested_display_precision=0,
-        device_class=SensorDeviceClass.DURATION,
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        device_class=SensorDeviceClass.TIMESTAMP,
         entity_category=EntityCategory.DIAGNOSTIC,
-        value_fn=lambda data: data.uptime,
+        value_fn=boot_time,
     ),
     RixensSensorEntityDescription(
         key="pid_speed",
         translation_key="pid_speed",
         native_unit_of_measurement=PERCENTAGE,
         suggested_display_precision=0,
-        state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         value_fn=lambda data: data.heater.pid_speed,
     ),
     RixensSensorEntityDescription(
@@ -192,8 +205,8 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         translation_key="burner_motor",
         native_unit_of_measurement="RPM",
         suggested_display_precision=0,
-        state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         value_fn=lambda data: data.heater.burner_motor,
     ),
     RixensSensorEntityDescription(
@@ -204,6 +217,8 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         device_class=SensorDeviceClass.FREQUENCY,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
+        # Same churn as fuel_consumption, which is derived from it
+        entity_registry_enabled_default=False,
         value_fn=lambda data: data.heater.dosing_pump,
     ),
     RixensSensorEntityDescription(
@@ -310,6 +325,7 @@ class RixensSensor(CoordinatorEntity[RixensCoordinator], SensorEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.config_entry.entry_id)},
         )
+        self._boot_time: datetime | None = None
 
     @property
     def icon(self) -> str | None:
@@ -326,10 +342,19 @@ class RixensSensor(CoordinatorEntity[RixensCoordinator], SensorEntity):
         return None
 
     @property
-    def native_value(self) -> float | int | str | None:
+    def native_value(self) -> datetime | float | int | str | None:
         """Return the state of the sensor."""
         if self.coordinator.data:
             value = self.entity_description.value_fn(self.coordinator.data)
+
+            # Boot time is computed from the poll time, so it can flip across a
+            # minute boundary between polls; only move it on a real reboot
+            if isinstance(value, datetime):
+                if self._boot_time is None or abs(value - self._boot_time) > timedelta(
+                    minutes=1
+                ):
+                    self._boot_time = value
+                return self._boot_time
 
             # Special handling for fuel consumption - apply configurable dose
             if (

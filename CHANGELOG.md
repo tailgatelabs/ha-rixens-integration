@@ -26,6 +26,25 @@ and this project adheres to
   new states that previously reported unknown.
 - Numeric sensors now have a default display precision, so values like
   temperature and battery voltage show rounded without manual setup (#84).
+- **Breaking:** System uptime is now a timestamp of when the controller last
+  booted, instead of a duration in seconds, so it no longer records a new state
+  on every poll (#88). Home Assistant will raise a one-time statistics repair
+  for it; choose to delete the old statistics.
+- Flame temperature is rounded to 1 °C and inlet/outlet temperatures to 0.1 °C,
+  so they no longer record a new state on almost every poll (#88).
+- The fan's `actual_speed` and the thermostat's `current_humidity` attributes are
+  no longer recorded in history; the PID speed and humidity sensors already
+  record them (#88).
+- PID speed, burner motor, dosing pump and flame, inlet and outlet temperature
+  sensors are disabled by default on new installs. Existing installs keep them
+  enabled; disable them on the device page to save recorder space. Fuel
+  consumption stays enabled (#89).
+- PID speed and burner motor no longer keep long-term statistics. Home Assistant
+  will raise a one-time statistics repair for them (#89).
+- The device is polled every 8 s instead of 5 s, cutting recorder writes by
+  about a third. Switches, the fan and the thermostat now show a change as soon
+  as you make it and confirm it with a refresh about 1 s later. The device is
+  marked unavailable after about 48 s of failed polls (#90).
 
 ## [1.2.1] - 2026-10-25
 

@@ -74,8 +74,12 @@ Fahrenheit) based on your Home Assistant settings.
 
 ### Keep an eye on the heater
 
-Flame, inlet and outlet temperatures, fuel use, battery voltage and fault codes
-are all recorded, so you can spot problems before they leave you cold.
+Fuel use, battery voltage and fault codes are all recorded, so you can spot
+problems before they leave you cold. Flame, inlet and outlet temperatures, PID
+speed, burner motor and dosing pump change on every poll and are mostly useful
+for troubleshooting, so they are disabled by default to keep the recorder
+database small. Enable them from the device page under **Diagnostic** when you
+need them.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/diagnostics-dark.png">
@@ -125,7 +129,7 @@ A preset only changes the target temperature. If the heater is off, turn it on
 as well (see [Pre-Heat Before You Arrive](#pre-heat-before-you-arrive)).
 
 The same screen has a **Fuel dose per pump cycle** setting used to calculate
-fuel consumption from the dosing pump rate. Leave the default (about 0.03 mL)
+fuel consumption from the dosing pump rate. Leave the default (0.02952 mL)
 unless the reported fuel use doesn't match what you actually burn.
 
 ## Automation Ideas
@@ -258,7 +262,8 @@ automation:
 
 ### Updates seem slow?
 
-- The integration polls your device every 5 seconds
+- The integration polls your device every 8 seconds, and refreshes about a
+  second after you change something from Home Assistant
 - Slow updates usually indicate network latency — check your WiFi signal at the
   device
 

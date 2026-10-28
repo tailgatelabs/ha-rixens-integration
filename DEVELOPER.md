@@ -26,7 +26,7 @@ custom_components/rixens/
 
 ## Key Patterns
 
-- **Coordinator pattern**: `RixensCoordinator` polls the device every 5 seconds
+- **Coordinator pattern**: `RixensCoordinator` polls the device every 8 seconds
   and distributes data to all entities
 - **Entity descriptions**: Sensors and switches use dataclass descriptions with
   `value_fn` callbacks for clean state extraction
@@ -64,7 +64,8 @@ Clarifications from Rixen's (October 2026) that differ from or add to the docs:
 
 `GET /status.xml` — Returns XML with all device state. The docs recommend
 polling every 2–5 seconds for live dashboards and never faster than once per
-second; the integration polls every 5 seconds.
+second; the integration polls every 8 seconds to reduce recorder writes (#90),
+and refreshes about 1 second after each command so changes show promptly.
 
 - Cabin temperature and setpoint are in **tenths of a degree Celsius** (e.g.,
   171 = 17.1°C); flame, inlet and outlet temperatures are in **hundredths**
@@ -127,18 +128,25 @@ water timer) are not implemented yet
 #### Heater Diagnostics
 
 - **Battery Voltage** — RV battery voltage monitoring
-- **Flame Temperature** — Burner flame temperature
-- **Inlet Temperature** — Heater inlet coolant temperature
-- **Outlet Temperature** — Heater outlet coolant temperature
+- **Flame Temperature** — Burner flame temperature, to 1 °C. Disabled by
+  default
+- **Inlet Temperature** — Heater inlet coolant temperature, to 0.1 °C. Disabled
+  by default
+- **Outlet Temperature** — Heater outlet coolant temperature, to 0.1 °C.
+  Disabled by default
 - **Heater Runtime** — Total heater (ECU) operating time. Reported in minutes,
   displayed in hours by default
-- **System Uptime** — Device uptime since last restart
+- **System Uptime** — When the controller last booted (timestamp, to the
+  minute), so the state only changes on a reboot
 
 #### Performance
 
-- **PID Speed** — Current PID-controlled fan speed percentage
-- **Burner Motor** — Burner motor RPM
-- **Dosing Pump** — Fuel pump frequency in Hz
+- **PID Speed** — Current PID-controlled fan speed percentage. Disabled by
+  default, no long-term statistics
+- **Burner Motor** — Burner motor RPM. Disabled by default, no long-term
+  statistics
+- **Dosing Pump** — Fuel pump frequency in Hz. Disabled by default; Fuel
+  Consumption is derived from it
 - **Fuel Consumption** — Current fuel consumption rate in ml/h
 
 #### System Information
@@ -170,7 +178,8 @@ water timer) are not implemented yet
 ### Fan Entity
 
 - **Fan** — On/off, manual speed (10-100%) and an `auto` preset
-  - Displays actual PID speed when in auto mode
+  - Displays actual PID speed when in auto mode (`actual_speed` attribute, not
+    recorded in history)
 
 ### Binary Sensors
 

@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from homeassistant.components.climate import (
     PRESET_AWAY,
     PRESET_HOME,
-    PRESET_SLEEP,
     HVACAction,
     HVACMode,
 )
@@ -196,6 +193,11 @@ class TestExtraAttributes:
         assert attrs["system_calling_for_heat"] is True
         assert "current_humidity" in attrs
 
+    def test_current_humidity_not_recorded(self, mock_coordinator):
+        """Duplicates the humidity sensor, so it is kept out of the recorder (#88)."""
+        climate = RixensClimate(mock_coordinator)
+        assert "current_humidity" in climate._unrecorded_attributes
+
     def test_attributes_no_data(self, mock_coordinator):
         mock_coordinator.data = None
         climate = RixensClimate(mock_coordinator)
@@ -214,7 +216,8 @@ class TestClimateActions:
         climate = RixensClimate(mock_coordinator)
         await climate.async_set_temperature(**{ATTR_TEMPERATURE: 22.5})
         mock_coordinator.api.set_temperature.assert_awaited_once_with(22.5)
-        mock_coordinator.async_request_refresh.assert_awaited()
+        mock_coordinator.async_refresh_after_command.assert_called_once()
+        assert climate.target_temperature == 22.5
         assert climate._preset_mode is None
 
     async def test_set_temperature_no_value(self, mock_coordinator):
@@ -281,7 +284,7 @@ class TestClimateActions:
         climate = RixensClimate(mock_coordinator)
         await climate.async_set_fan_mode("5")
         mock_coordinator.api.send_command.assert_not_awaited()
-        mock_coordinator.async_request_refresh.assert_not_awaited()
+        mock_coordinator.async_refresh_after_command.assert_not_called()
 
     async def test_set_preset_mode(self, mock_coordinator):
         climate = RixensClimate(mock_coordinator)

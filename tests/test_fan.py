@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from custom_components.rixens.api import Command
 from custom_components.rixens.fan import (
@@ -133,6 +132,11 @@ class TestFanEntity:
         assert attrs["actual_speed"] == 48
         assert attrs["configured_speed"] == 50
 
+    def test_actual_speed_not_recorded(self, mock_coordinator):
+        """actual_speed changes every poll, so it is kept out of the recorder (#88)."""
+        entity = RixensFan(mock_coordinator)
+        assert "actual_speed" in entity._unrecorded_attributes
+
     def test_extra_attributes_off(self, mock_coordinator):
         mock_coordinator.data = make_rixens_data(fan_state=False)
         entity = RixensFan(mock_coordinator)
@@ -159,7 +163,8 @@ class TestFanActions:
         entity = RixensFan(mock_coordinator)
         await entity.async_turn_on()
         assert sent_commands(mock_coordinator.api) == [(Command.FAN_STATE, True)]
-        mock_coordinator.async_request_refresh.assert_awaited()
+        mock_coordinator.async_refresh_after_command.assert_called_once()
+        assert entity.is_on is True
 
     async def test_turn_on_with_preset_auto(self, mock_coordinator):
         entity = RixensFan(mock_coordinator)
@@ -181,7 +186,9 @@ class TestFanActions:
         entity = RixensFan(mock_coordinator)
         await entity.async_turn_off()
         assert sent_commands(mock_coordinator.api) == [(Command.FAN_STATE, False)]
-        mock_coordinator.async_request_refresh.assert_awaited()
+        mock_coordinator.async_refresh_after_command.assert_called_once()
+        assert entity.is_on is False
+        assert entity.percentage == 0
 
     async def test_set_percentage(self, mock_coordinator):
         entity = RixensFan(mock_coordinator)
@@ -190,7 +197,10 @@ class TestFanActions:
             (Command.FAN_STATE, True),
             (Command.FAN_SPEED, 50),
         ]
-        mock_coordinator.async_request_refresh.assert_awaited()
+        mock_coordinator.async_refresh_after_command.assert_called_once()
+        assert entity.is_on is True
+        assert entity.percentage == 50
+        assert entity.preset_mode is None
 
     async def test_set_percentage_zero_turns_off(self, mock_coordinator):
         entity = RixensFan(mock_coordinator)
@@ -204,4 +214,6 @@ class TestFanActions:
             (Command.FAN_STATE, True),
             (Command.FAN_SPEED, 999),
         ]
-        mock_coordinator.async_request_refresh.assert_awaited()
+        mock_coordinator.async_refresh_after_command.assert_called_once()
+        assert entity.is_on is True
+        assert entity.preset_mode == PRESET_MODE_AUTO
