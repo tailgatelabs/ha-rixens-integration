@@ -108,7 +108,7 @@ A preset only changes the target temperature. If the heater is off, turn it on
 as well (see [Pre-Heat Before You Arrive](#pre-heat-before-you-arrive)).
 
 The same screen has a **Fuel dose per pump cycle** setting used to calculate
-fuel consumption from the dosing pump rate. Leave the default (about 0.03 mL)
+fuel consumption from the dosing pump rate. Leave the default (0.02952 mL)
 unless the reported fuel use doesn't match what you actually burn.
 
 ## Automation Ideas
