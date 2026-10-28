@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-28
+
 ### Added
 
 - Fuel used sensor: a running total of the fuel the furnace has burned, kept
@@ -25,9 +27,6 @@ and this project adheres to
   thermostat shows no target temperature (it used to show 20 °C).
 - **Breaking:** requires Home Assistant 2026.9 or later. The config flow now
   uses `probatio`, which replaced voluptuous in Home Assistant 2026.9.
-- Development and test dependencies updated to the latest versions that work
-  together (Home Assistant 2026.10.4, pytest-homeassistant-custom-component
-  0.13.375, ruff 0.17.3).
 - **Breaking:** the Comfort Hot tank sensor now reports Not ready, Ready
   (120–160°F) or Hot (above 160°F), following Rixen's description of
   `glycolstate` (#72). It previously reported Off, Warming, Ready or Max, so
@@ -37,12 +36,12 @@ and this project adheres to
   now Paused (`paused`) instead of Purging before start (`pre_start_purge`), and
   Cold blow (13), Stabilizing flame (15) and Shutting down to standby (31) are
   new states that previously reported unknown.
-- Numeric sensors now have a default display precision, so values like
-  temperature and battery voltage show rounded without manual setup (#84).
 - **Breaking:** System uptime is now a timestamp of when the controller last
   booted, instead of a duration in seconds, so it no longer records a new state
   on every poll (#88). Home Assistant will raise a one-time statistics repair
   for it; choose to delete the old statistics.
+- Numeric sensors now have a default display precision, so values like
+  temperature and battery voltage show rounded without manual setup (#84).
 - Flame temperature is rounded to 1 °C and inlet/outlet temperatures to 0.1 °C,
   so they no longer record a new state on almost every poll (#88).
 - The fan's `actual_speed` and the thermostat's `current_humidity` attributes
@@ -58,6 +57,9 @@ and this project adheres to
   about a third. Switches, the fan and the thermostat now show a change as soon
   as you make it and confirm it with a refresh about 1 s later. The device is
   marked unavailable after about 48 s of failed polls (#90).
+- Development and test dependencies updated to the latest versions that work
+  together (Home Assistant 2026.10.4, pytest-homeassistant-custom-component
+  0.13.375, ruff 0.17.3).
 
 ## [1.2.1] - 2026-10-25
 
@@ -198,7 +200,9 @@ and this project adheres to
 - DataUpdateCoordinator pattern for efficient updates
 
 [Unreleased]:
-  https://github.com/tailgatelabs/ha-rixens-integration/compare/v1.2.1...HEAD
+  https://github.com/tailgatelabs/ha-rixens-integration/compare/v1.3.0...HEAD
+[1.3.0]:
+  https://github.com/tailgatelabs/ha-rixens-integration/compare/v1.2.1...v1.3.0
 [1.2.1]:
   https://github.com/tailgatelabs/ha-rixens-integration/compare/v1.2.0...v1.2.1
 [1.2.0]:
