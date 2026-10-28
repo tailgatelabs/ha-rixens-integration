@@ -207,6 +207,6 @@ def mock_coordinator(mock_config_entry, mock_api) -> MagicMock:
     coordinator.data = make_rixens_data()
     coordinator.config_entry = mock_config_entry
     coordinator.api = mock_api
-    coordinator.async_request_refresh = AsyncMock()
+    coordinator.async_refresh_after_command = MagicMock()
     coordinator.is_available = True
     return coordinator

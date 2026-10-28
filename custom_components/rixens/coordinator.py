@@ -7,8 +7,9 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import RixensApi, RixensApiError, RixensData
@@ -16,8 +17,9 @@ from .const import CONF_PORT, DEFAULT_PORT, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-SCAN_INTERVAL = timedelta(seconds=5)
-MAX_FAILED_UPDATES_BEFORE_UNAVAILABLE = 10  # Keep last data for ~50s (10 * 5s)
+SCAN_INTERVAL = timedelta(seconds=8)
+MAX_FAILED_UPDATES_BEFORE_UNAVAILABLE = 6  # Keep last data for ~48s (6 * 8s)
+COMMAND_REFRESH_DELAY = 1.0  # Seconds to wait after a command before refreshing
 
 
 class RixensCoordinator(DataUpdateCoordinator[RixensData]):
@@ -42,6 +44,7 @@ class RixensCoordinator(DataUpdateCoordinator[RixensData]):
         self._failed_update_count = 0
         self._last_successful_update: datetime | None = None
         self._is_available = True
+        self._command_refresh_unsub: CALLBACK_TYPE | None = None
 
     async def _async_update_data(self) -> RixensData:
         """Fetch data from API with graceful degradation."""
@@ -84,6 +87,36 @@ class RixensCoordinator(DataUpdateCoordinator[RixensData]):
             raise UpdateFailed(
                 f"Error communicating with Rixens device: {err}"
             ) from err
+
+    @callback
+    def async_refresh_after_command(self) -> None:
+        """Schedule a refresh shortly after a user-initiated command.
+
+        Command responses are not authoritative and reading status.xml
+        immediately can race the device applying the change, so wait briefly.
+        Each call restarts the timer, so rapid successive commands collapse into
+        a single refresh after the last one. Bypasses the request debouncer.
+        """
+        self._cancel_command_refresh()
+        self._command_refresh_unsub = async_call_later(
+            self.hass, COMMAND_REFRESH_DELAY, self._async_command_refresh
+        )
+
+    def _cancel_command_refresh(self) -> None:
+        """Cancel a pending post-command refresh."""
+        if self._command_refresh_unsub is not None:
+            self._command_refresh_unsub()
+            self._command_refresh_unsub = None
+
+    async def _async_command_refresh(self, _now: datetime) -> None:
+        """Refresh after the post-command delay."""
+        self._command_refresh_unsub = None
+        await self.async_refresh()
+
+    async def async_shutdown(self) -> None:
+        """Cancel pending timers on shutdown."""
+        self._cancel_command_refresh()
+        await super().async_shutdown()
 
     @property
     def is_available(self) -> bool:

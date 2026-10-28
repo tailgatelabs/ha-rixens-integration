@@ -36,6 +36,10 @@ and this project adheres to
   consumption stays enabled (#89).
 - PID speed and burner motor no longer keep long-term statistics. Home Assistant
   will raise a one-time statistics repair for them (#89).
+- The device is polled every 8 s instead of 5 s, cutting recorder writes by
+  about a third. Switches, the fan and the thermostat now show a change as soon
+  as you make it and confirm it with a refresh about 1 s later. The device is
+  marked unavailable after about 48 s of failed polls (#90).
 
 ## [1.2.1] - 2026-10-25
 

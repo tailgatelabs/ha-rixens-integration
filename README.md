@@ -245,7 +245,8 @@ automation:
 
 ### Updates seem slow?
 
-- The integration polls your device every 5 seconds
+- The integration polls your device every 8 seconds, and refreshes about a
+  second after you change something from Home Assistant
 - Slow updates usually indicate network latency — check your WiFi signal at the
   device
 

@@ -26,7 +26,7 @@ custom_components/rixens/
 
 ## Key Patterns
 
-- **Coordinator pattern**: `RixensCoordinator` polls the device every 5 seconds
+- **Coordinator pattern**: `RixensCoordinator` polls the device every 8 seconds
   and distributes data to all entities
 - **Entity descriptions**: Sensors and switches use dataclass descriptions with
   `value_fn` callbacks for clean state extraction
@@ -64,7 +64,8 @@ Clarifications from Rixen's (October 2026) that differ from or add to the docs:
 
 `GET /status.xml` — Returns XML with all device state. The docs recommend
 polling every 2–5 seconds for live dashboards and never faster than once per
-second; the integration polls every 5 seconds.
+second; the integration polls every 8 seconds to reduce recorder writes (#90),
+and refreshes about 1 second after each command so changes show promptly.
 
 - Cabin temperature and setpoint are in **tenths of a degree Celsius** (e.g.,
   171 = 17.1°C); flame, inlet and outlet temperatures are in **hundredths**

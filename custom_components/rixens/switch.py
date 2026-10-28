@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .api import Command, RixensData
 from .const import DOMAIN
 from .coordinator import RixensCoordinator
+from .optimistic import OptimisticState
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -83,6 +84,7 @@ class RixensSwitch(CoordinatorEntity[RixensCoordinator], SwitchEntity):
         """Initialize the switch."""
         super().__init__(coordinator)
         self.entity_description = description
+        self._optimistic = OptimisticState[bool]()
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, coordinator.config_entry.entry_id)},
@@ -91,16 +93,23 @@ class RixensSwitch(CoordinatorEntity[RixensCoordinator], SwitchEntity):
     @property
     def is_on(self) -> bool | None:
         """Return True if the switch is on."""
+        actual = None
         if self.coordinator.data:
-            return self.entity_description.value_fn(self.coordinator.data)
-        return None
+            actual = self.entity_description.value_fn(self.coordinator.data)
+        return self._optimistic.resolve(actual)
+
+    async def _async_set(self, on: bool) -> None:
+        """Send the command, show the new state now and confirm via a refresh."""
+        await self.coordinator.api.send_command(self.entity_description.command, on)
+        self._optimistic.set(on)
+        if self.hass is not None:
+            self.async_write_ha_state()
+        self.coordinator.async_refresh_after_command()
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
-        await self.coordinator.api.send_command(self.entity_description.command, True)
-        await self.coordinator.async_request_refresh()
+        await self._async_set(True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        await self.coordinator.api.send_command(self.entity_description.command, False)
-        await self.coordinator.async_request_refresh()
+        await self._async_set(False)
