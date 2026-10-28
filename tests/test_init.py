@@ -16,8 +16,6 @@ from custom_components.rixens import (
 )
 from custom_components.rixens.const import CONF_HOST, CONF_PORT, DEFAULT_PORT, DOMAIN
 
-from .conftest import make_rixens_data
-
 
 @pytest.fixture
 def mock_hass():
@@ -45,9 +43,7 @@ class TestAsyncSetupEntry:
     """Tests for async_setup_entry."""
 
     async def test_setup_success(self, mock_hass, mock_entry):
-        with patch(
-            "custom_components.rixens.RixensCoordinator"
-        ) as mock_coord_cls:
+        with patch("custom_components.rixens.RixensCoordinator") as mock_coord_cls:
             mock_coord = AsyncMock()
             mock_coord.async_config_entry_first_refresh = AsyncMock()
             mock_coord_cls.return_value = mock_coord

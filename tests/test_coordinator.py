@@ -41,10 +41,9 @@ def mock_entry():
 
 def _make_coordinator(mock_hass, mock_entry):
     """Create a RixensCoordinator, patching out HA internals."""
-    with patch(
-        "custom_components.rixens.coordinator.async_get_clientsession"
-    ), patch(
-        "homeassistant.helpers.frame.report_usage"
+    with (
+        patch("custom_components.rixens.coordinator.async_get_clientsession"),
+        patch("homeassistant.helpers.frame.report_usage"),
     ):
         coordinator = RixensCoordinator(mock_hass, mock_entry)
     return coordinator
@@ -138,7 +137,7 @@ class TestAsyncUpdateData:
         coordinator.api.get_status = AsyncMock(return_value=make_rixens_data())
         coordinator._failed_update_count = 3
 
-        result = await coordinator._async_update_data()
+        await coordinator._async_update_data()
         assert coordinator._failed_update_count == 0
         assert coordinator._is_available is True
 
@@ -171,9 +170,7 @@ class TestAsyncUpdateData:
         """First failure with no cached data raises UpdateFailed."""
         coordinator = _make_coordinator(mock_hass, mock_entry)
         coordinator.api = AsyncMock()
-        coordinator.api.get_status = AsyncMock(
-            side_effect=RixensApiError("error")
-        )
+        coordinator.api.get_status = AsyncMock(side_effect=RixensApiError("error"))
 
         with pytest.raises(UpdateFailed):
             await coordinator._async_update_data()

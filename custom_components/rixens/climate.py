@@ -73,6 +73,8 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
     _attr_hvac_modes = [HVACMode.OFF, HVACMode.HEAT]
     _attr_fan_modes = FAN_MODES
     _attr_preset_modes = [PRESET_AWAY, PRESET_HOME, PRESET_SLEEP]
+    # Already recorded by the humidity sensor
+    _unrecorded_attributes = frozenset({"current_humidity"})
     _attr_min_temp = TEMP_MIN
     _attr_max_temp = TEMP_MAX
     _attr_target_temperature_step = TEMP_STEP

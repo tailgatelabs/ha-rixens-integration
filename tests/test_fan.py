@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from custom_components.rixens.api import Command
 from custom_components.rixens.fan import (
@@ -132,6 +131,11 @@ class TestFanEntity:
         assert attrs["mode"] == "manual"
         assert attrs["actual_speed"] == 48
         assert attrs["configured_speed"] == 50
+
+    def test_actual_speed_not_recorded(self, mock_coordinator):
+        """actual_speed changes every poll, so it is kept out of the recorder (#88)."""
+        entity = RixensFan(mock_coordinator)
+        assert "actual_speed" in entity._unrecorded_attributes
 
     def test_extra_attributes_off(self, mock_coordinator):
         mock_coordinator.data = make_rixens_data(fan_state=False)

@@ -71,6 +71,8 @@ class RixensFan(CoordinatorEntity[RixensCoordinator], FanEntity):
     _attr_translation_key = "fan"
     _attr_speed_count = 10
     _attr_preset_modes = [PRESET_MODE_AUTO]
+    # Changes on nearly every poll while running; pid_speed sensor has it
+    _unrecorded_attributes = frozenset({"actual_speed"})
     _attr_supported_features = (
         FanEntityFeature.SET_SPEED
         | FanEntityFeature.PRESET_MODE

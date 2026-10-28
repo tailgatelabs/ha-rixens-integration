@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 import time
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
-import pytest
 
 from custom_components.rixens.api import Command
 from custom_components.rixens.optimistic import OPTIMISTIC_TIMEOUT
 from custom_components.rixens.switch import (
     SWITCH_DESCRIPTIONS,
     RixensSwitch,
-    RixensSwitchEntityDescription,
 )
 
 from .conftest import make_rixens_data, sent_commands
@@ -85,8 +83,11 @@ class TestSwitchEntity:
         mock_coordinator.data = make_rixens_data(furnace_src=0)
         switch = self._make_switch(mock_coordinator, "furnace")
         await switch.async_turn_on()
-        with patch("custom_components.rixens.optimistic.time.monotonic") as mono:
-            mono.return_value = time.monotonic() + OPTIMISTIC_TIMEOUT + 1
+        # Computed before patching: the patch replaces time.monotonic globally
+        expired = time.monotonic() + OPTIMISTIC_TIMEOUT + 1
+        with patch(
+            "custom_components.rixens.optimistic.time.monotonic", return_value=expired
+        ):
             assert switch.is_on is False
 
     async def test_furnace_turn_off(self, mock_coordinator):

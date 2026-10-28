@@ -41,7 +41,8 @@ in issue #72.
 
 **Status endpoint:** `GET /status.xml` - Returns XML with all device state
 
-- Poll every 2-5 s for live dashboards, never faster than 1 req/s (we use 5 s)
+- Poll every 2-5 s for live dashboards, never faster than 1 req/s (we use 8 s
+  to reduce recorder writes, #90, plus a refresh ~1 s after each command)
 - Command responses are not authoritative; always refresh from `status.xml`
 - Temperatures (`currenttemp`, `setpoint`) are **tenths of °C**; flame, inlet
   and outlet temps are **hundredths of °C**
@@ -77,7 +78,7 @@ only), sent via `RixensApi.send_command(Command.<NAME>, value)`
 
 ## Key Patterns
 
-- **Coordinator pattern**: `RixensCoordinator` polls the device every 5 seconds
+- **Coordinator pattern**: `RixensCoordinator` polls the device every 8 seconds
   and distributes data to all entities
 - **Entity descriptions**: Sensors and switches use dataclass descriptions with
   `value_fn` callbacks for clean state extraction
