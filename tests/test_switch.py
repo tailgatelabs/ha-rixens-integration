@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+import time
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from custom_components.rixens.api import Command
+from custom_components.rixens.optimistic import OPTIMISTIC_TIMEOUT
 from custom_components.rixens.switch import (
     SWITCH_DESCRIPTIONS,
     RixensSwitch,
@@ -62,7 +64,30 @@ class TestSwitchEntity:
         switch = self._make_switch(mock_coordinator, "furnace")
         await switch.async_turn_on()
         assert sent_commands(mock_coordinator.api) == [(Command.FURNACE, True)]
-        mock_coordinator.async_request_refresh.assert_awaited()
+        mock_coordinator.async_refresh_after_command.assert_called_once()
+        # Optimistic: shown on immediately, before the device confirms it
+        assert switch.is_on is True
+
+    async def test_optimistic_state_cleared_when_confirmed(self, mock_coordinator):
+        mock_coordinator.data = make_rixens_data(furnace_src=0)
+        switch = self._make_switch(mock_coordinator, "furnace")
+        await switch.async_turn_on()
+        # Stale poll still shows off: keep the commanded value
+        assert switch.is_on is True
+        # Device confirms
+        mock_coordinator.data = make_rixens_data(furnace_src=2)
+        assert switch.is_on is True
+        # Later device-side change is no longer masked
+        mock_coordinator.data = make_rixens_data(furnace_src=0)
+        assert switch.is_on is False
+
+    async def test_optimistic_state_expires(self, mock_coordinator):
+        mock_coordinator.data = make_rixens_data(furnace_src=0)
+        switch = self._make_switch(mock_coordinator, "furnace")
+        await switch.async_turn_on()
+        with patch("custom_components.rixens.optimistic.time.monotonic") as mono:
+            mono.return_value = time.monotonic() + OPTIMISTIC_TIMEOUT + 1
+            assert switch.is_on is False
 
     async def test_furnace_turn_off(self, mock_coordinator):
         switch = self._make_switch(mock_coordinator, "furnace")

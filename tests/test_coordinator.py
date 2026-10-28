@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -12,7 +13,9 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 from custom_components.rixens.api import RixensApiError, RixensConnectionError
 from custom_components.rixens.const import CONF_HOST, CONF_PORT, DEFAULT_PORT
 from custom_components.rixens.coordinator import (
+    COMMAND_REFRESH_DELAY,
     MAX_FAILED_UPDATES_BEFORE_UNAVAILABLE,
+    SCAN_INTERVAL,
     RixensCoordinator,
 )
 
@@ -56,6 +59,63 @@ class TestCoordinatorInit:
         assert coordinator._failed_update_count == 0
         assert coordinator._last_successful_update is None
         assert coordinator._is_available is True
+
+
+class TestScanInterval:
+    """Tests for polling configuration."""
+
+    def test_interval_is_8_seconds(self, mock_hass, mock_entry):
+        coordinator = _make_coordinator(mock_hass, mock_entry)
+        assert SCAN_INTERVAL == timedelta(seconds=8)
+        assert coordinator.update_interval == timedelta(seconds=8)
+
+    def test_availability_grace_about_50_seconds(self):
+        grace = MAX_FAILED_UPDATES_BEFORE_UNAVAILABLE * SCAN_INTERVAL.total_seconds()
+        assert 45 <= grace <= 50
+
+
+class TestRefreshAfterCommand:
+    """Tests for the delayed post-command refresh."""
+
+    def test_schedules_refresh_after_delay(self, mock_hass, mock_entry):
+        coordinator = _make_coordinator(mock_hass, mock_entry)
+        with patch(
+            "custom_components.rixens.coordinator.async_call_later"
+        ) as call_later:
+            coordinator.async_refresh_after_command()
+        call_later.assert_called_once_with(
+            mock_hass, COMMAND_REFRESH_DELAY, coordinator._async_command_refresh
+        )
+
+    def test_rapid_commands_collapse_into_one_refresh(self, mock_hass, mock_entry):
+        coordinator = _make_coordinator(mock_hass, mock_entry)
+        unsubs = [MagicMock(), MagicMock(), MagicMock()]
+        with patch(
+            "custom_components.rixens.coordinator.async_call_later",
+            side_effect=unsubs,
+        ):
+            for _ in unsubs:
+                coordinator.async_refresh_after_command()
+        # Every earlier timer was cancelled; only the last stays pending
+        unsubs[0].assert_called_once()
+        unsubs[1].assert_called_once()
+        unsubs[2].assert_not_called()
+
+    async def test_refresh_runs_when_timer_fires(self, mock_hass, mock_entry):
+        coordinator = _make_coordinator(mock_hass, mock_entry)
+        coordinator.async_refresh = AsyncMock()
+        coordinator._command_refresh_unsub = MagicMock()
+        await coordinator._async_command_refresh(None)
+        coordinator.async_refresh.assert_awaited_once()
+        assert coordinator._command_refresh_unsub is None
+
+    async def test_shutdown_cancels_pending_refresh(self, mock_hass, mock_entry):
+        coordinator = _make_coordinator(mock_hass, mock_entry)
+        unsub = MagicMock()
+        coordinator._command_refresh_unsub = unsub
+        await coordinator.async_shutdown()
+        unsub.assert_called_once()
+        assert coordinator._command_refresh_unsub is None
 
 
 class TestAsyncUpdateData:
