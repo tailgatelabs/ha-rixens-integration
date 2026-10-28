@@ -47,6 +47,14 @@ class TestClimateProperties:
         climate = RixensClimate(mock_coordinator)
         assert climate.target_temperature is None
 
+    async def test_set_temperature_while_thermostat_off(self, mock_coordinator):
+        """The setpoint is sent but not shown while the thermostat is off."""
+        mock_coordinator.data = make_rixens_data(therm_enabled=False, setpoint=None)
+        climate = RixensClimate(mock_coordinator)
+        await climate.async_set_temperature(**{ATTR_TEMPERATURE: 21.0})
+        mock_coordinator.api.set_temperature.assert_awaited_once_with(21.0)
+        assert climate.target_temperature is None
+
     def test_target_temperature_no_data(self, mock_coordinator):
         mock_coordinator.data = None
         climate = RixensClimate(mock_coordinator)

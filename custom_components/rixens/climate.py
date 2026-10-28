@@ -130,14 +130,16 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
 
     @property
     def target_temperature(self) -> float | None:
-        """Return the target temperature."""
-        actual = None
-        if (
-            self.coordinator.data
-            and self.coordinator.data.settings.setpoint is not None
-        ):
-            actual = round(self.coordinator.data.settings.setpoint, 1)
-        return self._optimistic_target.resolve(actual)
+        """Return the target temperature.
+
+        None while the thermostat is off (setpoint "Off"); a temperature set
+        then is kept by the device and used when it is turned back on.
+        """
+        data = self.coordinator.data
+        if data is None or data.settings.setpoint is None:
+            self._optimistic_target.clear()
+            return None
+        return self._optimistic_target.resolve(round(data.settings.setpoint, 1))
 
     @property
     def hvac_mode(self) -> HVACMode:
