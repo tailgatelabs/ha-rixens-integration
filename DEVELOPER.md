@@ -88,7 +88,7 @@ and refreshes about 1 second after each command so changes show promptly.
 | `6`  | Hot water          | 0/1                                                   | Hot water switch     |
 | `7`  | Engine pre-heat    | 0/1                                                   | not yet (#66)        |
 | `8`  | Fan state          | 0/1                                                   | Climate, Fan         |
-| `9`  | Thermostat state   | 0/1                                                   | not yet (#67)        |
+| `9`  | Thermostat state   | 0/1                                                   | Climate (Off/Heat)   |
 | `10` | Heated floors      | 0/1                                                   | Floor heat switch    |
 | `11` | Aux                | 0/1                                                   | not yet (#66)        |
 
@@ -128,8 +128,7 @@ water timer) are not implemented yet
 #### Heater Diagnostics
 
 - **Battery Voltage** — RV battery voltage monitoring
-- **Flame Temperature** — Burner flame temperature, to 1 °C. Disabled by
-  default
+- **Flame Temperature** — Burner flame temperature, to 1 °C. Disabled by default
 - **Inlet Temperature** — Heater inlet coolant temperature, to 0.1 °C. Disabled
   by default
 - **Outlet Temperature** — Heater outlet coolant temperature, to 0.1 °C.
@@ -227,12 +226,11 @@ Fault attributes:
 
 ## Advanced Behavior
 
-### Heat Source State Preservation
+### Thermostat On/Off
 
-When turning the climate entity on/off:
-
-- The integration remembers which heat sources (furnace, electric) were enabled
-- Turning back on restores your previous heat source configuration
+The climate entity's Off/Heat mode uses the thermostat state command (`act=9`)
+and follows `thermenabled`. The heat source switches are not touched, so turning
+back on resumes with the same sources (#67).
 
 ### Fan Speed Intelligence
 
@@ -241,7 +239,7 @@ When turning the climate entity on/off:
 
 ### HVAC Action States
 
-- **Off**: HVAC mode is off
+- **Off**: Thermostat off, or no heat source enabled
 - **Idle**: Heating enabled but temperature at/above setpoint
 - **Heating**: Actively calling for heat and heat sources running
 
