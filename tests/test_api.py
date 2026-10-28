@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import AsyncIterator
 from unittest.mock import MagicMock
 
@@ -293,6 +294,16 @@ class TestParseStatusManufacturerSample:
             "<cnstheattimerval>1795</cnstheattimerval>",
         )
         assert _parse(xml).settings.cnst_heat_timer_val == 1795
+
+    def test_setpoint_off_while_thermostat_off(self):
+        """HW2-1.209 reports setpoint "Off" while thermenabled is 0."""
+        xml = SAMPLE_XML_1_208.replace(
+            "<thermenabled>1</thermenabled>", "<thermenabled>0</thermenabled>"
+        )
+        xml = re.sub(r"<setpoint>\d+</setpoint>", "<setpoint>Off</setpoint>", xml)
+        s = _parse(xml).settings
+        assert s.therm_enabled is False
+        assert s.setpoint is None
 
     def test_heater_and_faults(self):
         data = _parse(SAMPLE_XML_1_208)

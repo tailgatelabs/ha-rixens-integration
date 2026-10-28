@@ -91,7 +91,8 @@ class RixensHeaterData:
 class RixensSettings:
     """Settings data from the <settings> element."""
 
-    setpoint: float  # Target cabin temperature. Note: Divide by 10 for °C
+    # Target cabin temperature. Note: Divide by 10 for °C
+    setpoint: float | None  # None while the thermostat is off
     # "Off", a manual speed percentage (0-100) or "Auto" (not 999), per Rixen's
     fan_speed: str
     pump_state: bool  # Circulation pump operational state (0 = Off, 1 = On)
@@ -304,9 +305,14 @@ class RixensApi:
             fan_speed = DEVICE_FAN_AUTO
         # Older firmware (HW2-1.205) has no cnstheattimerval
         timer_val = get_int(settings_elem, "cnstheattimerval", NO_TIMER)
+        # Firmware (HW2-1.209) reports "Off" while the thermostat is off (#67)
+        try:
+            setpoint = int(get_text(settings_elem, "setpoint", "200")) / 10.0
+        except ValueError:
+            setpoint = None
 
         settings = RixensSettings(
-            setpoint=get_int(settings_elem, "setpoint", 200) / 10.0,
+            setpoint=setpoint,
             fan_speed=fan_speed,
             pump_state=get_bool(settings_elem, "pumpstate"),
             fan_state=get_bool(settings_elem, "fanstate"),

@@ -132,7 +132,10 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
     def target_temperature(self) -> float | None:
         """Return the target temperature."""
         actual = None
-        if self.coordinator.data:
+        if (
+            self.coordinator.data
+            and self.coordinator.data.settings.setpoint is not None
+        ):
             actual = round(self.coordinator.data.settings.setpoint, 1)
         return self._optimistic_target.resolve(actual)
 

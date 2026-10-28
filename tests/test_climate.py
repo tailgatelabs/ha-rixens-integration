@@ -41,6 +41,12 @@ class TestClimateProperties:
         climate = RixensClimate(mock_coordinator)
         assert climate.target_temperature == 18.0
 
+    def test_target_temperature_thermostat_off(self, mock_coordinator):
+        """No target while the device reports setpoint "Off"."""
+        mock_coordinator.data = make_rixens_data(therm_enabled=False, setpoint=None)
+        climate = RixensClimate(mock_coordinator)
+        assert climate.target_temperature is None
+
     def test_target_temperature_no_data(self, mock_coordinator):
         mock_coordinator.data = None
         climate = RixensClimate(mock_coordinator)

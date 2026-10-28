@@ -88,7 +88,7 @@ def make_rixens_data(
     current_humidity: float | None = 14.5,
     system_heat: bool = True,
     heater_state: int = 20,
-    setpoint: float = 18.0,
+    setpoint: float | None = 18.0,
     fan_speed: str = "Auto",
     pump_state: bool = True,
     fan_state: bool = True,
