@@ -54,25 +54,21 @@ class TestClimateProperties:
 class TestHvacMode:
     """Tests for HVAC mode property."""
 
-    def test_heat_when_furnace_enabled(self, mock_coordinator):
-        mock_coordinator.data = make_rixens_data(furnace_src=2)
+    def test_heat_when_thermostat_enabled(self, mock_coordinator):
+        mock_coordinator.data = make_rixens_data(therm_enabled=True)
         climate = RixensClimate(mock_coordinator)
         assert climate.hvac_mode == HVACMode.HEAT
 
-    def test_heat_when_electric_enabled(self, mock_coordinator):
-        mock_coordinator.data = make_rixens_data(furnace_src=0, electric_src=1)
-        climate = RixensClimate(mock_coordinator)
-        assert climate.hvac_mode == HVACMode.HEAT
-
-    def test_heat_when_engine_enabled(self, mock_coordinator):
-        mock_coordinator.data = make_rixens_data(furnace_src=0, engine_src=1)
-        climate = RixensClimate(mock_coordinator)
-        assert climate.hvac_mode == HVACMode.HEAT
-
-    def test_off_when_all_disabled(self, mock_coordinator):
+    def test_heat_when_thermostat_enabled_without_sources(self, mock_coordinator):
+        """Mode follows thermenabled, not the heat source switches."""
         mock_coordinator.data = make_rixens_data(
-            furnace_src=0, electric_src=0, engine_src=0
+            therm_enabled=True, furnace_src=0, electric_src=0, engine_src=0
         )
+        climate = RixensClimate(mock_coordinator)
+        assert climate.hvac_mode == HVACMode.HEAT
+
+    def test_off_when_thermostat_disabled(self, mock_coordinator):
+        mock_coordinator.data = make_rixens_data(therm_enabled=False, furnace_src=2)
         climate = RixensClimate(mock_coordinator)
         assert climate.hvac_mode == HVACMode.OFF
 
@@ -88,6 +84,13 @@ class TestHvacAction:
     def test_off_when_all_disabled(self, mock_coordinator):
         mock_coordinator.data = make_rixens_data(
             furnace_src=0, electric_src=0, engine_src=0
+        )
+        climate = RixensClimate(mock_coordinator)
+        assert climate.hvac_action == HVACAction.OFF
+
+    def test_off_when_thermostat_disabled(self, mock_coordinator):
+        mock_coordinator.data = make_rixens_data(
+            therm_enabled=False, system_heat=True, furnace_src=2
         )
         climate = RixensClimate(mock_coordinator)
         assert climate.hvac_action == HVACAction.OFF
@@ -223,38 +226,22 @@ class TestClimateActions:
         await climate.async_set_temperature()
         mock_coordinator.api.set_temperature.assert_not_awaited()
 
-    async def test_set_hvac_mode_heat_default(self, mock_coordinator):
-        """Turning on with no previous state defaults to furnace."""
+    async def test_set_hvac_mode_heat(self, mock_coordinator):
+        mock_coordinator.data = make_rixens_data(therm_enabled=False)
         climate = RixensClimate(mock_coordinator)
         await climate.async_set_hvac_mode(HVACMode.HEAT)
-        assert sent_commands(mock_coordinator.api) == [(Command.FURNACE, True)]
+        assert sent_commands(mock_coordinator.api) == [(Command.THERMOSTAT_STATE, True)]
+        mock_coordinator.async_refresh_after_command.assert_called_once()
+        assert climate.hvac_mode == HVACMode.HEAT
 
-    async def test_set_hvac_mode_heat_restores_sources(self, mock_coordinator):
-        """Turning on restores previously enabled sources."""
-        climate = RixensClimate(mock_coordinator)
-        climate._last_heat_sources = {"furnace": True, "electric": True}
-        await climate.async_set_hvac_mode(HVACMode.HEAT)
-        assert sent_commands(mock_coordinator.api) == [
-            (Command.FURNACE, True),
-            (Command.ELECTRIC_HEAT, True),
-        ]
-
-    async def test_set_hvac_mode_heat_restores_only_furnace(self, mock_coordinator):
-        """Restores only previously-enabled sources."""
-        climate = RixensClimate(mock_coordinator)
-        climate._last_heat_sources = {"furnace": True, "electric": False}
-        await climate.async_set_hvac_mode(HVACMode.HEAT)
-        assert sent_commands(mock_coordinator.api) == [(Command.FURNACE, True)]
-
-    async def test_set_hvac_mode_off_saves_and_disables(self, mock_coordinator):
-        mock_coordinator.data = make_rixens_data(furnace_src=2, electric_src=1)
+    async def test_set_hvac_mode_off(self, mock_coordinator):
+        """Off leaves the heat source switches alone."""
         climate = RixensClimate(mock_coordinator)
         await climate.async_set_hvac_mode(HVACMode.OFF)
-        assert climate._last_heat_sources == {"furnace": True, "electric": True}
         assert sent_commands(mock_coordinator.api) == [
-            (Command.FURNACE, False),
-            (Command.ELECTRIC_HEAT, False),
+            (Command.THERMOSTAT_STATE, False)
         ]
+        assert climate.hvac_mode == HVACMode.OFF
 
     async def test_set_fan_mode_off(self, mock_coordinator):
         climate = RixensClimate(mock_coordinator)
@@ -304,12 +291,11 @@ class TestClimateActions:
     async def test_turn_on(self, mock_coordinator):
         climate = RixensClimate(mock_coordinator)
         await climate.async_turn_on()
-        assert sent_commands(mock_coordinator.api) == [(Command.FURNACE, True)]
+        assert sent_commands(mock_coordinator.api) == [(Command.THERMOSTAT_STATE, True)]
 
     async def test_turn_off(self, mock_coordinator):
         climate = RixensClimate(mock_coordinator)
         await climate.async_turn_off()
         assert sent_commands(mock_coordinator.api) == [
-            (Command.FURNACE, False),
-            (Command.ELECTRIC_HEAT, False),
+            (Command.THERMOSTAT_STATE, False),
         ]

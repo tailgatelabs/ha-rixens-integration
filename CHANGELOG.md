@@ -18,6 +18,10 @@ and this project adheres to
 
 ### Changed
 
+- **Breaking:** the thermostat's Off/Heat mode now uses the controller's
+  thermostat on/off command and shows its thermostat state, instead of turning
+  the furnace and electric heat switches off and on (#67). The heat source
+  switches keep their settings while the thermostat is off.
 - **Breaking:** requires Home Assistant 2026.9 or later. The config flow now
   uses `probatio`, which replaced voluptuous in Home Assistant 2026.9.
 - Development and test dependencies updated to the latest versions that work

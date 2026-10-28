@@ -97,8 +97,6 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
             model="RV Heater",
             sw_version=coordinator.data.version if coordinator.data else None,
         )
-        # Track last heat source configuration for state preservation
-        self._last_heat_sources: dict[str, bool] | None = None
         # Track current preset mode
         self._preset_mode: str | None = None
         # Commanded values shown until the device confirms them
@@ -145,24 +143,9 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
 
     @property
     def _device_hvac_mode(self) -> HVACMode:
-        """Return the HVAC mode reported by the device.
-
-        Mode is based on whether heat sources are enabled, not whether
-        heat is currently being called for (system_heat).
-        """
-        if not self.coordinator.data:
-            return HVACMode.OFF
-
-        # HVAC mode is HEAT if any heat source is enabled
-        # (*src: 0 = Off, 1 = ready, 2 = active).
-        # Only furnace_src, electric_src, and engine_src are actual heat sources
-        if (
-            self.coordinator.data.settings.furnace_src != 0
-            or self.coordinator.data.settings.electric_src != 0
-            or self.coordinator.data.settings.engine_src != 0
-        ):
+        """Return the HVAC mode reported by the device (thermenabled)."""
+        if self.coordinator.data and self.coordinator.data.settings.therm_enabled:
             return HVACMode.HEAT
-
         return HVACMode.OFF
 
     @property
@@ -170,15 +153,15 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
         """Return the current HVAC action.
 
         Properly distinguishes between:
-        - OFF: All heat sources disabled (all *src == 0)
+        - OFF: Thermostat off, or all heat sources disabled (all *src == 0)
         - IDLE: Heat sources enabled but not calling for heat (systemheat == 0)
         - HEATING: Calling for heat AND at least one source actively heating (*src == 2)
         """
         if not self.coordinator.data:
             return None
 
-        # Check if all heat sources are disabled
-        all_disabled = (
+        # Check if the thermostat is off or all heat sources are disabled
+        all_disabled = not self.coordinator.data.settings.therm_enabled or (
             self.coordinator.data.settings.furnace_src == 0
             and self.coordinator.data.settings.electric_src == 0
             and self.coordinator.data.settings.engine_src == 0
@@ -277,38 +260,14 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
         self.coordinator.async_refresh_after_command()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
-        """Set new HVAC mode.
+        """Set new HVAC mode via the thermostat state command (act=9).
 
-        Preserves heat source configuration when toggling between OFF and HEAT.
-        When turning on, restores previously enabled sources (or defaults to furnace).
-        When turning off, remembers which sources were enabled.
-
-        Engine add heat (act=3) is not toggled here; see #67 for moving HVAC
-        OFF/HEAT to the thermostat state command (act=9).
+        The heat source switches are left as they are, so turning back on
+        resumes with the same sources.
         """
-        if hvac_mode == HVACMode.HEAT:
-            # Restore previous configuration or default to furnace only
-            if self._last_heat_sources:
-                if self._last_heat_sources.get("furnace"):
-                    await self.coordinator.api.send_command(Command.FURNACE, True)
-                if self._last_heat_sources.get("electric"):
-                    await self.coordinator.api.send_command(Command.ELECTRIC_HEAT, True)
-                # Nothing remembered as enabled: no command was sent
-                if not any(self._last_heat_sources.values()):
-                    self.coordinator.async_refresh_after_command()
-                    return
-            else:
-                # Default: enable furnace only
-                await self.coordinator.api.send_command(Command.FURNACE, True)
-        elif hvac_mode == HVACMode.OFF:
-            # Save current heat source state before turning off
-            if self.coordinator.data:
-                self._last_heat_sources = {
-                    "furnace": self.coordinator.data.settings.furnace_src != 0,
-                    "electric": self.coordinator.data.settings.electric_src != 0,
-                }
-            await self.coordinator.api.send_command(Command.FURNACE, False)
-            await self.coordinator.api.send_command(Command.ELECTRIC_HEAT, False)
+        await self.coordinator.api.send_command(
+            Command.THERMOSTAT_STATE, hvac_mode == HVACMode.HEAT
+        )
         self._commit(hvac=hvac_mode)
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
@@ -345,15 +304,9 @@ class RixensClimate(CoordinatorEntity[RixensCoordinator], ClimateEntity):
             self._commit(target=self._preset_temps[preset_mode])
 
     async def async_turn_on(self) -> None:
-        """Turn the heating system on.
-
-        Delegates to async_set_hvac_mode for consistent state preservation.
-        """
+        """Turn the heating system on."""
         await self.async_set_hvac_mode(HVACMode.HEAT)
 
     async def async_turn_off(self) -> None:
-        """Turn the heating system off.
-
-        Delegates to async_set_hvac_mode for consistent state preservation.
-        """
+        """Turn the heating system off."""
         await self.async_set_hvac_mode(HVACMode.OFF)

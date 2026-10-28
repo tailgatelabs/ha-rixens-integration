@@ -70,7 +70,7 @@ only), sent via `RixensApi.send_command(Command.<NAME>, value)`
 | 6   | Hot water               | 0/1                            |
 | 7   | Engine pre-heat         | not exposed yet (#66)          |
 | 8   | Fan state               | 0/1                            |
-| 9   | Thermostat state        | not used yet (#67)             |
+| 9   | Thermostat state        | Climate Off/Heat, 0/1 (#67)    |
 | 10  | Heated floors           | 0/1                            |
 | 11  | Aux                     | not exposed yet (#66)          |
 
