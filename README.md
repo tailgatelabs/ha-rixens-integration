@@ -73,8 +73,12 @@ Fahrenheit) based on your Home Assistant settings.
 
 ### Keep an eye on the heater
 
-Flame, inlet and outlet temperatures, fuel use, battery voltage and fault codes
-are all recorded, so you can spot problems before they leave you cold.
+Fuel use, battery voltage and fault codes are all recorded, so you can spot
+problems before they leave you cold. Flame, inlet and outlet temperatures, PID
+speed, burner motor and dosing pump change on every poll and are mostly useful
+for troubleshooting, so they are disabled by default to keep the recorder
+database small. Enable them from the device page under **Diagnostic** when you
+need them.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/diagnostics-dark.png">

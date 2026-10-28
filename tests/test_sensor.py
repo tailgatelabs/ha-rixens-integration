@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 
 import pytest
 from homeassistant.components.sensor import SensorDeviceClass
@@ -13,7 +14,6 @@ from custom_components.rixens.faults import FAULT_OPTIONS
 from custom_components.rixens.sensor import (
     SENSOR_DESCRIPTIONS,
     RixensSensor,
-    RixensSensorEntityDescription,
 )
 
 from .conftest import make_rixens_data
@@ -34,15 +34,42 @@ class TestSensorDescriptions:
         data = make_rixens_data()
         for desc in SENSOR_DESCRIPTIONS:
             value = desc.value_fn(data)
-            assert isinstance(value, (int, float, str, type(None)))
+            assert isinstance(value, (datetime, int, float, str, type(None)))
+
+    @pytest.mark.parametrize(
+        "key",
+        [
+            "pid_speed",
+            "burner_motor",
+            "dosing_pump",
+            "flame_temperature",
+            "inlet_temperature",
+            "outlet_temperature",
+        ],
+    )
+    def test_noisy_diagnostics_disabled_by_default(self, key):
+        """Troubleshooting sensors that change every poll start disabled (#89)."""
+        desc = next(d for d in SENSOR_DESCRIPTIONS if d.key == key)
+        assert desc.entity_registry_enabled_default is False
+
+    def test_fuel_consumption_enabled_by_default(self):
+        desc = next(d for d in SENSOR_DESCRIPTIONS if d.key == "fuel_consumption")
+        assert desc.entity_registry_enabled_default is True
+
+    @pytest.mark.parametrize("key", ["pid_speed", "burner_motor"])
+    def test_no_long_term_statistics(self, key):
+        """No state_class, so no long-term statistics are kept (#89)."""
+        desc = next(d for d in SENSOR_DESCRIPTIONS if d.key == key)
+        assert desc.state_class is None
 
     def test_numeric_sensors_have_display_precision(self):
         """Every numeric sensor ships a default precision (#84)."""
         data = make_rixens_data()
         for desc in SENSOR_DESCRIPTIONS:
-            if desc.device_class == SensorDeviceClass.ENUM or isinstance(
-                desc.value_fn(data), str
-            ):
+            if desc.device_class in (
+                SensorDeviceClass.ENUM,
+                SensorDeviceClass.TIMESTAMP,
+            ) or isinstance(desc.value_fn(data), str):
                 assert desc.suggested_display_precision is None, desc.key
             else:
                 assert desc.suggested_display_precision is not None, desc.key
@@ -206,8 +233,53 @@ class TestSensorEntity:
         assert sensor.native_value == 12.5
 
     def test_native_value_flame_temp(self, mock_coordinator):
+        """Rounded to 1 °C so it isn't recorded on every poll (#88)."""
         sensor = self._make_sensor(mock_coordinator, "flame_temperature")
-        assert sensor.native_value == 145.25
+        assert sensor.native_value == 145
+
+    @pytest.mark.parametrize(
+        ("key", "expected"),
+        [("inlet_temperature", 70.8), ("outlet_temperature", 73.0)],
+    )
+    def test_native_value_glycol_temps_rounded(self, mock_coordinator, key, expected):
+        """Rounded to 0.1 °C so they aren't recorded on every poll (#88)."""
+        sensor = self._make_sensor(mock_coordinator, key)
+        assert sensor.native_value == expected
+
+    def test_system_uptime_is_boot_time(self, mock_coordinator):
+        """Uptime is reported as the boot time, to the minute (#88)."""
+        now = datetime(2026, 10, 28, 12, 0, 0, tzinfo=UTC)
+        mock_coordinator.data = make_rixens_data(uptime=3600 + 20)
+        sensor = self._make_sensor(mock_coordinator, "system_uptime")
+        assert sensor.device_class == SensorDeviceClass.TIMESTAMP
+        assert sensor.state_class is None
+        assert sensor.native_unit_of_measurement is None
+        with patch("homeassistant.util.dt.utcnow", return_value=now):
+            assert sensor.native_value == datetime(2026, 10, 28, 11, 0, tzinfo=UTC)
+
+    def test_system_uptime_steady_between_polls(self, mock_coordinator):
+        """Boot time stays put across polls, even across a minute boundary."""
+        now = datetime(2026, 10, 28, 12, 0, 0, tzinfo=UTC)
+        sensor = self._make_sensor(mock_coordinator, "system_uptime")
+        values = set()
+        # Poll jitter puts the computed boot time either side of 11:00:30
+        for poll, uptime in enumerate((3570, 3574, 3581, 3583, 3590)):
+            mock_coordinator.data = make_rixens_data(uptime=uptime)
+            with patch(
+                "homeassistant.util.dt.utcnow",
+                return_value=now + timedelta(seconds=5 * poll),
+            ):
+                values.add(sensor.native_value)
+        assert len(values) == 1
+
+    def test_system_uptime_changes_on_reboot(self, mock_coordinator):
+        now = datetime(2026, 10, 28, 12, 0, 0, tzinfo=UTC)
+        sensor = self._make_sensor(mock_coordinator, "system_uptime")
+        with patch("homeassistant.util.dt.utcnow", return_value=now):
+            mock_coordinator.data = make_rixens_data(uptime=86400)
+            assert sensor.native_value == datetime(2026, 10, 27, 12, 0, tzinfo=UTC)
+            mock_coordinator.data = make_rixens_data(uptime=120)
+            assert sensor.native_value == datetime(2026, 10, 28, 11, 58, tzinfo=UTC)
 
     def test_native_value_runtime(self, mock_coordinator):
         sensor = self._make_sensor(mock_coordinator, "heater_runtime")
