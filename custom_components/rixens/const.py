@@ -34,4 +34,4 @@ TEMP_STEP = 0.5
 
 # Fuel consumption constants
 CONF_FUEL_DOSE = "fuel_dose"
-DEFAULT_FUEL_DOSE = 0.0297979798  # ml per dose (improved accuracy)
+DEFAULT_FUEL_DOSE = 0.02952  # ml per dose
