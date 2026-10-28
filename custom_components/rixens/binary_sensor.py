@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor import (
+    BinarySensorEntity,
+    BinarySensorEntityDescription,
+)
 from homeassistant.components.binary_sensor.const import BinarySensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
@@ -13,6 +18,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .api import RixensData
 from .const import DOMAIN
 from .coordinator import RixensCoordinator
 from .faults import (
@@ -24,6 +30,28 @@ from .faults import (
 )
 
 
+@dataclass(frozen=True, kw_only=True)
+class RixensBinarySensorEntityDescription(BinarySensorEntityDescription):
+    """Describes a Rixens binary sensor entity."""
+
+    value_fn: Callable[[RixensData], bool]
+
+
+BINARY_SENSOR_DESCRIPTIONS: tuple[RixensBinarySensorEntityDescription, ...] = (
+    RixensBinarySensorEntityDescription(
+        key="circulation_pump",
+        translation_key="circulation_pump",
+        device_class=BinarySensorDeviceClass.RUNNING,
+        value_fn=lambda data: data.settings.pump_state,
+    ),
+    RixensBinarySensorEntityDescription(
+        key="engine_heat",
+        translation_key="engine_heat",
+        value_fn=lambda data: data.engine_state == 1,
+    ),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -31,9 +59,42 @@ async def async_setup_entry(
 ) -> None:
     """Set up Rixens binary sensors based on a config entry."""
     coordinator: RixensCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities(
-        [RixensConnectionSensor(coordinator), RixensHeaterFaultSensor(coordinator)]
+    entities: list[BinarySensorEntity] = [
+        RixensConnectionSensor(coordinator),
+        RixensHeaterFaultSensor(coordinator),
+    ]
+    entities.extend(
+        RixensBinarySensor(coordinator, description)
+        for description in BINARY_SENSOR_DESCRIPTIONS
     )
+    async_add_entities(entities)
+
+
+class RixensBinarySensor(CoordinatorEntity[RixensCoordinator], BinarySensorEntity):
+    """Representation of a Rixens binary sensor."""
+
+    _attr_has_entity_name = True
+    entity_description: RixensBinarySensorEntityDescription
+
+    def __init__(
+        self,
+        coordinator: RixensCoordinator,
+        description: RixensBinarySensorEntityDescription,
+    ) -> None:
+        """Initialize the binary sensor."""
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{description.key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, coordinator.config_entry.entry_id)},
+        )
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return the state of the binary sensor."""
+        if self.coordinator.data:
+            return self.entity_description.value_fn(self.coordinator.data)
+        return None
 
 
 class RixensConnectionSensor(CoordinatorEntity[RixensCoordinator], BinarySensorEntity):

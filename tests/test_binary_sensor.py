@@ -6,6 +6,8 @@ import pytest
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 
 from custom_components.rixens.binary_sensor import (
+    BINARY_SENSOR_DESCRIPTIONS,
+    RixensBinarySensor,
     RixensConnectionSensor,
     RixensHeaterFaultSensor,
 )
@@ -85,3 +87,31 @@ class TestHeaterFaultSensor:
         sensor = RixensHeaterFaultSensor(mock_coordinator)
         assert sensor.is_on is None
         assert sensor.extra_state_attributes == {}
+
+
+class TestBinarySensor:
+    """Tests for the description-based binary sensors."""
+
+    def _make_sensor(self, mock_coordinator, key: str):
+        desc = next(d for d in BINARY_SENSOR_DESCRIPTIONS if d.key == key)
+        return RixensBinarySensor(mock_coordinator, desc)
+
+    def test_unique_id(self, mock_coordinator):
+        sensor = self._make_sensor(mock_coordinator, "circulation_pump")
+        assert sensor._attr_unique_id == "test_entry_id_circulation_pump"
+
+    @pytest.mark.parametrize("pump_state", [True, False])
+    def test_circulation_pump(self, mock_coordinator, pump_state):
+        mock_coordinator.data = make_rixens_data(pump_state=pump_state)
+        sensor = self._make_sensor(mock_coordinator, "circulation_pump")
+        assert sensor.is_on is pump_state
+        assert sensor.device_class == BinarySensorDeviceClass.RUNNING
+
+    @pytest.mark.parametrize(("engine_state", "expected"), [(0, False), (1, True)])
+    def test_engine_heat(self, mock_coordinator, engine_state, expected):
+        mock_coordinator.data = make_rixens_data(engine_state=engine_state)
+        assert self._make_sensor(mock_coordinator, "engine_heat").is_on is expected
+
+    def test_no_data(self, mock_coordinator):
+        mock_coordinator.data = None
+        assert self._make_sensor(mock_coordinator, "engine_heat").is_on is None

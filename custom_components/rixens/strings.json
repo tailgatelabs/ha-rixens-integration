@@ -39,6 +39,12 @@
       },
       "heater_fault": {
         "name": "Heater fault"
+      },
+      "circulation_pump": {
+        "name": "Circulation pump"
+      },
+      "engine_heat": {
+        "name": "Engine heat"
       }
     },
     "sensor": {
@@ -111,6 +117,9 @@
           "ready": "Ready",
           "hot": "Hot"
         }
+      },
+      "hot_water_timer": {
+        "name": "Hot water timer"
       },
       "firmware_version": {
         "name": "Firmware version"

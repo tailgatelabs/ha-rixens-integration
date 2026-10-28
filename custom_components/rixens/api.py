@@ -31,6 +31,8 @@ RETRY_DELAY = 1  # seconds
 # Raw values the device reports when no cabin sensor is connected
 NO_SENSOR_TEMP = -9990
 NO_SENSOR_HUMIDITY = -999
+# Raw cnstheattimerval when no Hot Water timer is running
+NO_TIMER = -1
 
 # The device does not escape "&" in strings (e.g. <infra_ssid>R&DRouter</infra_ssid>),
 # which makes the XML invalid. Matches any "&" that does not start an entity.
@@ -117,6 +119,9 @@ class RixensSettings:
     electric_src: int
     engine_src: int
     cnst_heat: int  # Hot Water mode state (0 = Off, 1 = On)
+    # Remaining Hot Water timer in seconds, None when no timer is running
+    # (-1) or the firmware does not report it
+    cnst_heat_timer_val: int | None
 
 
 @dataclass
@@ -297,6 +302,8 @@ class RixensApi:
         # Firmware reports "Auto"; the docs specify 999 = Auto, so accept both
         if fan_speed == str(FAN_SPEED_AUTO):
             fan_speed = DEVICE_FAN_AUTO
+        # Older firmware (HW2-1.205) has no cnstheattimerval
+        timer_val = get_int(settings_elem, "cnstheattimerval", NO_TIMER)
 
         settings = RixensSettings(
             setpoint=get_int(settings_elem, "setpoint", 200) / 10.0,
@@ -318,6 +325,7 @@ class RixensApi:
             electric_src=get_int(settings_elem, "electricsrc"),
             engine_src=get_int(settings_elem, "enginesrc"),
             cnst_heat=get_int(settings_elem, "cnstheat"),
+            cnst_heat_timer_val=None if timer_val == NO_TIMER else timer_val,
         )
 
         raw_temp = get_int(root, "currenttemp")

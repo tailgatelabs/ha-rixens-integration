@@ -41,8 +41,8 @@ in issue #72.
 
 **Status endpoint:** `GET /status.xml` - Returns XML with all device state
 
-- Poll every 2-5 s for live dashboards, never faster than 1 req/s (we use 8 s
-  to reduce recorder writes, #90, plus a refresh ~1 s after each command)
+- Poll every 2-5 s for live dashboards, never faster than 1 req/s (we use 8 s to
+  reduce recorder writes, #90, plus a refresh ~1 s after each command)
 - Command responses are not authoritative; always refresh from `status.xml`
 - Temperatures (`currenttemp`, `setpoint`) are **tenths of °C**; flame, inlet
   and outlet temps are **hundredths of °C**
@@ -89,14 +89,14 @@ only), sent via `RixensApi.send_command(Command.<NAME>, value)`
 
 ## Platforms
 
-| Platform      | Entities                                                                                                                              |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| climate       | Main thermostat (setpoint, current temp, fan modes, HVAC modes)                                                                       |
-| sensor        | Temperature, humidity, Comfort Hot tank, battery voltage, flame/inlet/outlet temps, altitude, runtime, fuel used, faults, diagnostics |
-| switch        | Furnace, floor heat, electric heat, hot water                                                                                         |
-| fan           | Fan (on/off, 10-100% speed, auto preset)                                                                                              |
-| binary_sensor | Connection status, heater fault                                                                                                       |
-| event         | Heater fault detected                                                                                                                 |
+| Platform      | Entities                                                                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| climate       | Main thermostat (setpoint, current temp, fan modes, HVAC modes)                                                                                        |
+| sensor        | Temperature, humidity, Comfort Hot tank, hot water timer, battery voltage, flame/inlet/outlet temps, altitude, runtime, fuel used, faults, diagnostics |
+| switch        | Furnace, floor heat, electric heat, hot water                                                                                                          |
+| fan           | Fan (on/off, 10-100% speed, auto preset)                                                                                                               |
+| binary_sensor | Connection status, heater fault, circulation pump, engine heat                                                                                         |
+| event         | Heater fault detected                                                                                                                                  |
 
 ## Development
 

@@ -249,6 +249,15 @@ SENSOR_DESCRIPTIONS: tuple[RixensSensorEntityDescription, ...] = (
         value_fn=lambda data: GLYCOL_TANK_STATES.get(data.glycol_state),
     ),
     RixensSensorEntityDescription(
+        key="hot_water_timer",
+        translation_key="hot_water_timer",
+        native_unit_of_measurement=UnitOfTime.SECONDS,
+        suggested_unit_of_measurement=UnitOfTime.MINUTES,
+        suggested_display_precision=0,
+        device_class=SensorDeviceClass.DURATION,
+        value_fn=lambda data: data.settings.cnst_heat_timer_val,
+    ),
+    RixensSensorEntityDescription(
         key="active_fault",
         translation_key="active_fault",
         device_class=SensorDeviceClass.ENUM,
