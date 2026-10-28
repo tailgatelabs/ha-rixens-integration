@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 from custom_components.rixens.api import Command
 from custom_components.rixens.fan import (
     PRESET_MODE_AUTO,

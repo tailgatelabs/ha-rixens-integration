@@ -18,7 +18,7 @@ alerts — all without walking to the thermostat.
 
 - A **Rixens heating system** connected to your local WiFi network (a beta
   firmware may be required)
-- **Home Assistant** (2024.11 or later)
+- **Home Assistant** (2026.9 or later)
 - **HACS** installed
   ([how to install HACS](https://hacs.xyz/docs/use/download/download/))
 

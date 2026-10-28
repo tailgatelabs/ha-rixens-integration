@@ -20,7 +20,6 @@ from custom_components.rixens.const import CONF_HOST, CONF_PORT, DEFAULT_PORT
 
 from .conftest import make_rixens_data
 
-
 # ---------------------------------------------------------------------------
 # validate_input
 # ---------------------------------------------------------------------------

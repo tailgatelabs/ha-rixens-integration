@@ -139,7 +139,8 @@ below assume the venv is active.
 - Tests live in `tests/` and mirror the module structure of
   `custom_components/rixens/`
 - 90% code coverage threshold enforced by CI
-- Use `aioresponses` for HTTP-level mocking
+- Use HA's `AiohttpClientMocker` (`http` fixture in `tests/test_api.py`) for
+  HTTP-level mocking; `aioresponses` doesn't support aiohttp 3.14
 - See `CONTRIBUTING.md` for full testing requirements and patterns
 
 ## Code Navigation — Prefer Serena MCP Tools

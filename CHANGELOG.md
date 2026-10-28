@@ -10,6 +10,11 @@ and this project adheres to
 
 ### Changed
 
+- **Breaking:** requires Home Assistant 2026.9 or later. The config flow now
+  uses `probatio`, which replaced voluptuous in Home Assistant 2026.9.
+- Development and test dependencies updated to the latest versions that work
+  together (Home Assistant 2026.10.4, pytest-homeassistant-custom-component
+  0.13.375, ruff 0.17.3).
 - **Breaking:** the Comfort Hot tank sensor now reports Not ready, Ready
   (120–160°F) or Hot (above 160°F), following Rixen's description of
   `glycolstate` (#72). It previously reported Off, Warming, Ready or Max, so

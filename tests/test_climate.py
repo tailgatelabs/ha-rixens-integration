@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 from homeassistant.components.climate import (
     PRESET_AWAY,
     PRESET_HOME,
@@ -15,7 +14,6 @@ from custom_components.rixens.api import Command
 from custom_components.rixens.climate import RixensClimate
 
 from .conftest import make_rixens_data, sent_commands
-
 
 # ---------------------------------------------------------------------------
 # Properties

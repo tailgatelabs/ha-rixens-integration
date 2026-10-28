@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 import logging
+from datetime import datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
@@ -64,16 +64,18 @@ class RixensCoordinator(DataUpdateCoordinator[RixensData]):
             self._failed_update_count += 1
 
             # Keep last good data for a while before marking unavailable
-            if self._failed_update_count <= MAX_FAILED_UPDATES_BEFORE_UNAVAILABLE:
-                if self.data:
-                    _LOGGER.warning(
-                        "Failed to update Rixens device (attempt %d/%d), keeping last known state: %s",
-                        self._failed_update_count,
-                        MAX_FAILED_UPDATES_BEFORE_UNAVAILABLE,
-                        err,
-                    )
-                    # Return last good data to keep entities available
-                    return self.data
+            if (
+                self._failed_update_count <= MAX_FAILED_UPDATES_BEFORE_UNAVAILABLE
+                and self.data
+            ):
+                _LOGGER.warning(
+                    "Failed to update Rixens device (attempt %d/%d), keeping last known state: %s",
+                    self._failed_update_count,
+                    MAX_FAILED_UPDATES_BEFORE_UNAVAILABLE,
+                    err,
+                )
+                # Return last good data to keep entities available
+                return self.data
 
             # Too many failures - mark as unavailable
             if self._is_available:

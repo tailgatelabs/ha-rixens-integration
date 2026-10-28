@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 
 from custom_components.rixens.binary_sensor import (
