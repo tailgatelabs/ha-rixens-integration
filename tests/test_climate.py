@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from homeassistant.components.climate import (
     PRESET_AWAY,
     PRESET_HOME,
-    PRESET_SLEEP,
     HVACAction,
     HVACMode,
 )
@@ -195,6 +192,11 @@ class TestExtraAttributes:
         assert attrs["engine_heat_enabled"] is False
         assert attrs["system_calling_for_heat"] is True
         assert "current_humidity" in attrs
+
+    def test_current_humidity_not_recorded(self, mock_coordinator):
+        """Duplicates the humidity sensor, so it is kept out of the recorder (#88)."""
+        climate = RixensClimate(mock_coordinator)
+        assert "current_humidity" in climate._unrecorded_attributes
 
     def test_attributes_no_data(self, mock_coordinator):
         mock_coordinator.data = None

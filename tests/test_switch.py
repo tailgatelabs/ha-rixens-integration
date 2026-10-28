@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
-
-import pytest
 
 from custom_components.rixens.api import Command
 from custom_components.rixens.switch import (
     SWITCH_DESCRIPTIONS,
     RixensSwitch,
-    RixensSwitchEntityDescription,
 )
 
 from .conftest import make_rixens_data, sent_commands
