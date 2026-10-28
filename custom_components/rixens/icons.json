@@ -6,6 +6,18 @@
         "state": {
           "off": "mdi:check-circle-outline"
         }
+      },
+      "circulation_pump": {
+        "default": "mdi:pump",
+        "state": {
+          "off": "mdi:pump-off"
+        }
+      },
+      "engine_heat": {
+        "default": "mdi:engine",
+        "state": {
+          "off": "mdi:engine-off"
+        }
       }
     },
     "event": {
@@ -61,6 +73,9 @@
         "state": {
           "not_ready": "mdi:water-boiler-off"
         }
+      },
+      "hot_water_timer": {
+        "default": "mdi:timer-sand"
       },
       "firmware_version": {
         "default": "mdi:chip"

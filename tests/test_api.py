@@ -198,6 +198,8 @@ class TestParseStatus:
         assert s.electric_src == 0
         assert s.engine_src == 0
         assert s.floor_src == 2
+        # HW2-1.205 does not report the Hot Water timer
+        assert s.cnst_heat_timer_val is None
 
     def test_invalid_xml_raises_api_error(self):
         with pytest.raises(RixensApiError, match="Failed to parse"):
@@ -282,6 +284,15 @@ class TestParseStatusManufacturerSample:
         assert s.engine_enable is True
         assert s.floor_enable is False
         assert s.cnst_heat == 0
+        # -1 means no Hot Water timer is running
+        assert s.cnst_heat_timer_val is None
+
+    def test_hot_water_timer_remaining(self):
+        xml = SAMPLE_XML_1_208.replace(
+            "<cnstheattimerval>-1</cnstheattimerval>",
+            "<cnstheattimerval>1795</cnstheattimerval>",
+        )
+        assert _parse(xml).settings.cnst_heat_timer_val == 1795
 
     def test_heater_and_faults(self):
         data = _parse(SAMPLE_XML_1_208)

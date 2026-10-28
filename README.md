@@ -57,6 +57,8 @@ Assistant:
 | Turn the heater on or off             | Climate card power button                                        |
 | Switch between heat sources           | Furnace, Electric Heat, and Floor Heat switches                  |
 | Turn on hot water                     | Hot Water switch                                                 |
+| See how long hot water has left       | Hot water timer sensor                                           |
+| See what the system is doing          | Circulation pump and engine heat binary sensors                  |
 | Control the fan                       | Auto mode or manual speed (10-100%)                              |
 | Use quick temperature presets         | Away (freeze protection), Home, or Sleep                         |
 | Monitor room conditions               | Temperature and humidity sensors                                 |

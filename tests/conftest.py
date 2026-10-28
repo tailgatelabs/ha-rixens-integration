@@ -99,6 +99,8 @@ def make_rixens_data(
     engine_src: int = 0,
     floor_src: int = 2,
     cnst_heat: int = 0,
+    cnst_heat_timer_val: int | None = None,
+    engine_state: int = 0,
     glycol_state: int = 2,
     heat_on: bool = True,
     battery_voltage: float = 12.5,
@@ -126,7 +128,7 @@ def make_rixens_data(
         heater_state=heater_state,
         zone2_state=0,
         zone3_state=0,
-        engine_state=0,
+        engine_state=engine_state,
         glycol_state=glycol_state,
         current_temp=current_temp,
         current_humidity=current_humidity,
@@ -170,6 +172,7 @@ def make_rixens_data(
             electric_src=electric_src,
             engine_src=engine_src,
             cnst_heat=cnst_heat,
+            cnst_heat_timer_val=cnst_heat_timer_val,
         ),
     )
 

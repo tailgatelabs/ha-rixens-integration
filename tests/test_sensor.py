@@ -123,6 +123,15 @@ class TestSensorEntity:
         sensor = self._make_sensor(mock_coordinator, "glycol_tank")
         assert sensor.device_class == SensorDeviceClass.ENUM
         assert sensor.options == ["not_ready", "ready", "hot"]
+
+    @pytest.mark.parametrize("raw", [1795, None])
+    def test_hot_water_timer(self, mock_coordinator, raw):
+        """Remaining Hot Water timer in seconds; unknown when not running."""
+        mock_coordinator.data = make_rixens_data(cnst_heat_timer_val=raw)
+        sensor = self._make_sensor(mock_coordinator, "hot_water_timer")
+        assert sensor.native_value == raw
+        assert sensor.device_class == SensorDeviceClass.DURATION
+        assert sensor.native_unit_of_measurement == UnitOfTime.SECONDS
         assert sensor.entity_category is None  # shown on dashboards by default
 
     @pytest.mark.parametrize(
@@ -358,6 +367,7 @@ class TestSensorEntity:
 
     def test_all_sensors_instantiate(self, mock_coordinator):
         """Verify all sensor descriptions can create entities."""
+        mock_coordinator.data = make_rixens_data(cnst_heat=1, cnst_heat_timer_val=1795)
         for desc in SENSOR_DESCRIPTIONS:
             sensor = RixensSensor(mock_coordinator, desc)
             assert sensor.native_value is not None
