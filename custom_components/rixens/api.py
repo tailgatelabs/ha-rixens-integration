@@ -11,11 +11,11 @@ therefore ignored and the coordinator refreshes from status.xml instead.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
-from enum import IntEnum
 import logging
 import math
 import re
+from dataclasses import dataclass
+from enum import IntEnum
 from xml.etree import ElementTree
 
 import aiohttp

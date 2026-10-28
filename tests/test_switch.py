@@ -5,7 +5,6 @@ from __future__ import annotations
 import time
 from unittest.mock import patch
 
-
 from custom_components.rixens.api import Command
 from custom_components.rixens.optimistic import OPTIMISTIC_TIMEOUT
 from custom_components.rixens.switch import (

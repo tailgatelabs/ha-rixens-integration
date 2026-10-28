@@ -8,7 +8,11 @@ from unittest.mock import MagicMock
 
 import aiohttp
 import pytest
-from aioresponses import aioresponses
+from pytest_homeassistant_custom_component.test_util.aiohttp import (
+    AiohttpClientMocker,
+    AiohttpClientMockResponse,
+)
+from yarl import URL
 
 from custom_components.rixens.api import (
     Command,
@@ -24,11 +28,27 @@ BASE_URL = "http://192.168.1.1"
 
 
 @pytest.fixture
-async def api() -> AsyncIterator[RixensApi]:
-    """Create a RixensApi backed by a real aiohttp session."""
-    session = aiohttp.ClientSession()
+def http() -> AiohttpClientMocker:
+    """HTTP mocker from Home Assistant's test helpers."""
+    return AiohttpClientMocker()
+
+
+@pytest.fixture
+async def api(http: AiohttpClientMocker) -> AsyncIterator[RixensApi]:
+    """Create a RixensApi backed by an aiohttp session bound to ``http``."""
+    session = http.create_session(asyncio.get_running_loop())
     yield RixensApi(host="192.168.1.1", session=session)
     await session.close()
+
+
+def _in_order(url: str, *responses: dict) -> object:
+    """Side effect that answers successive requests with ``responses``."""
+    queue = iter(responses)
+
+    async def side_effect(method, _url, _data):
+        return AiohttpClientMockResponse(method, URL(url), **next(queue))
+
+    return side_effect
 
 
 def _parse(xml: str) -> RixensData:
@@ -71,46 +91,44 @@ class TestRixensApiInit:
 class TestRequest:
     """Tests for HTTP request handling with retries."""
 
-    async def test_successful_request(self, api):
-        with aioresponses() as m:
-            m.get(f"{BASE_URL}/status.xml", body=SAMPLE_XML)
-            result = await api._request("/status.xml")
-            assert "<version>" in result
+    async def test_successful_request(self, api, http):
+        http.get(f"{BASE_URL}/status.xml", text=SAMPLE_XML)
+        result = await api._request("/status.xml")
+        assert "<version>" in result
 
-    async def test_timeout_raises_connection_error(self, api):
-        with aioresponses() as m:
-            for _ in range(3):
-                m.get(f"{BASE_URL}/status.xml", exception=asyncio.TimeoutError())
-            with pytest.raises(RixensConnectionError, match="Timeout"):
-                await api._request("/status.xml")
+    async def test_timeout_raises_connection_error(self, api, http):
+        http.get(f"{BASE_URL}/status.xml", exc=TimeoutError())
+        with pytest.raises(RixensConnectionError, match="Timeout"):
+            await api._request("/status.xml")
+        assert http.call_count == 3
 
-    async def test_client_error_raises_connection_error(self, api):
-        with aioresponses() as m:
-            exc = aiohttp.ClientError("connection refused")
-            for _ in range(3):
-                m.get(f"{BASE_URL}/status.xml", exception=exc)
-            with pytest.raises(RixensConnectionError, match="Error connecting"):
-                await api._request("/status.xml")
+    async def test_client_error_raises_connection_error(self, api, http):
+        exc = aiohttp.ClientError("connection refused")
+        http.get(f"{BASE_URL}/status.xml", exc=exc)
+        with pytest.raises(RixensConnectionError, match="Error connecting"):
+            await api._request("/status.xml")
+        assert http.call_count == 3
 
-    async def test_retry_then_success(self, api):
-        with aioresponses() as m:
-            m.get(f"{BASE_URL}/status.xml", exception=asyncio.TimeoutError())
-            m.get(f"{BASE_URL}/status.xml", body="<ok/>")
-            result = await api._request("/status.xml")
-            assert result == "<ok/>"
+    async def test_retry_then_success(self, api, http):
+        url = f"{BASE_URL}/status.xml"
+        http.get(
+            url,
+            side_effect=_in_order(url, {"exc": TimeoutError()}, {"text": "<ok/>"}),
+        )
+        result = await api._request("/status.xml")
+        assert result == "<ok/>"
+        assert http.call_count == 2
 
-    async def test_no_retry_when_disabled(self, api):
-        with aioresponses() as m:
-            m.get(f"{BASE_URL}/status.xml", exception=asyncio.TimeoutError())
-            with pytest.raises(RixensConnectionError):
-                await api._request("/status.xml", retry=False)
+    async def test_no_retry_when_disabled(self, api, http):
+        http.get(f"{BASE_URL}/status.xml", exc=TimeoutError())
+        with pytest.raises(RixensConnectionError):
+            await api._request("/status.xml", retry=False)
+        assert http.call_count == 1
 
-    async def test_http_error_status(self, api):
-        with aioresponses() as m:
-            for _ in range(3):
-                m.get(f"{BASE_URL}/status.xml", status=500)
-            with pytest.raises(RixensConnectionError):
-                await api._request("/status.xml")
+    async def test_http_error_status(self, api, http):
+        http.get(f"{BASE_URL}/status.xml", status=500)
+        with pytest.raises(RixensConnectionError):
+            await api._request("/status.xml")
 
 
 # ---------------------------------------------------------------------------
@@ -121,16 +139,13 @@ class TestRequest:
 class TestTestConnection:
     """Tests for the test_connection method."""
 
-    async def test_returns_true_on_success(self, api):
-        with aioresponses() as m:
-            m.get(f"{BASE_URL}/status.xml", body=SAMPLE_XML)
-            assert await api.test_connection() is True
+    async def test_returns_true_on_success(self, api, http):
+        http.get(f"{BASE_URL}/status.xml", text=SAMPLE_XML)
+        assert await api.test_connection() is True
 
-    async def test_returns_false_on_failure(self, api):
-        with aioresponses() as m:
-            for _ in range(3):
-                m.get(f"{BASE_URL}/status.xml", exception=asyncio.TimeoutError())
-            assert await api.test_connection() is False
+    async def test_returns_false_on_failure(self, api, http):
+        http.get(f"{BASE_URL}/status.xml", exc=TimeoutError())
+        assert await api.test_connection() is False
 
 
 # ---------------------------------------------------------------------------
@@ -237,12 +252,11 @@ class TestParseStatus:
         xml = "<response><version>A&amp;B &#38; C</version></response>"
         assert _parse(xml).version == "A&B & C"
 
-    async def test_get_status_integration(self, api):
-        with aioresponses() as m:
-            m.get(f"{BASE_URL}/status.xml", body=SAMPLE_XML)
-            data = await api.get_status()
-            assert isinstance(data, RixensData)
-            assert data.version == "HW2-1.205 2025_11_20 RIXENS"
+    async def test_get_status_integration(self, api, http):
+        http.get(f"{BASE_URL}/status.xml", text=SAMPLE_XML)
+        data = await api.get_status()
+        assert isinstance(data, RixensData)
+        assert data.version == "HW2-1.205 2025_11_20 RIXENS"
 
 
 class TestParseStatusManufacturerSample:
@@ -318,10 +332,10 @@ class TestCommands:
             (Command.HEATED_FLOORS, True, "act=10&val=1"),
         ],
     )
-    async def test_send_command(self, api, command, value, query):
-        with aioresponses() as m:
-            m.get(f"{BASE_URL}/interface.cgi?{query}", body="OK")
-            await api.send_command(command, value)
+    async def test_send_command(self, api, http, command, value, query):
+        http.get(f"{BASE_URL}/interface.cgi?{query}", text="OK")
+        await api.send_command(command, value)
+        assert http.call_count == 1
 
     @pytest.mark.parametrize(
         ("celsius", "raw"),
@@ -335,7 +349,7 @@ class TestCommands:
             (22.25, 223),
         ],
     )
-    async def test_set_temperature_rounds(self, api, celsius, raw):
-        with aioresponses() as m:
-            m.get(f"{BASE_URL}/interface.cgi?act=1&val={raw}", body="OK")
-            await api.set_temperature(celsius)
+    async def test_set_temperature_rounds(self, api, http, celsius, raw):
+        http.get(f"{BASE_URL}/interface.cgi?act=1&val={raw}", text="OK")
+        await api.set_temperature(celsius)
+        assert http.call_count == 1

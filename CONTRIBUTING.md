@@ -72,7 +72,9 @@ exactly what still needs a test.
 
 Use shared fixtures in `tests/conftest.py` (`mock_coordinator`, `mock_api`,
 etc.) rather than duplicating setup logic in individual test files. When you
-need HTTP-level mocking, use `aioresponses`.
+need HTTP-level mocking, use Home Assistant's `AiohttpClientMocker` (from
+`pytest_homeassistant_custom_component.test_util.aiohttp`), as in
+`tests/test_api.py`.
 
 ## Testing a Branch on Your Home Assistant Install
 

@@ -13,3 +13,7 @@ exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
 ]
+
+[tool.ruff.lint]
+# Home Assistant entities declare _attr_* lists as class attributes by design
+ignore = ["RUF012"]

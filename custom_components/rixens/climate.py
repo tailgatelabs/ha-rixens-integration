@@ -22,6 +22,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .api import Command
 from .const import (
     DEVICE_FAN_AUTO,
     DEVICE_FAN_OFF,
@@ -36,7 +37,6 @@ from .const import (
     TEMP_MIN,
     TEMP_STEP,
 )
-from .api import Command
 from .coordinator import RixensCoordinator
 from .optimistic import OptimisticState
 
