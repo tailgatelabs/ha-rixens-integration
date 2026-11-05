@@ -43,6 +43,8 @@ in issue #72.
 
 - Poll every 2-5 s for live dashboards, never faster than 1 req/s (we use 8 s to
   reduce recorder writes, #90, plus a refresh ~1 s after each command)
+- `RixensApi` sends one request at a time, at least 1 s apart; status polls
+  aren't retried, commands are retried once
 - Command responses are not authoritative; always refresh from `status.xml`
 - Temperatures (`currenttemp`, `setpoint`) are **tenths of °C**; flame, inlet
   and outlet temps are **hundredths of °C**

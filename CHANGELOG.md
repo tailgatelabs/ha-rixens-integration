@@ -8,6 +8,13 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- Requests to the controller are sent one at a time, at least 1 s apart, as the
+  API docs ask. Fan changes that send two commands no longer burst.
+- Status polls are no longer retried within a poll; the last data is kept
+  through missed polls instead. Commands are retried once instead of twice.
+
 ## [1.3.0] - 2026-10-28
 
 ### Added
