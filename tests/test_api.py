@@ -15,6 +15,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import (
 )
 from yarl import URL
 
+from custom_components.rixens import api as api_module
 from custom_components.rixens.api import (
     Command,
     RixensApi,
@@ -26,6 +27,12 @@ from custom_components.rixens.api import (
 from .conftest import SAMPLE_XML, SAMPLE_XML_1_208
 
 BASE_URL = "http://192.168.1.1"
+
+
+@pytest.fixture(autouse=True)
+def no_request_spacing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Don't wait between requests; TestRequestPacing re-enables it."""
+    monkeypatch.setattr(api_module, "MIN_REQUEST_INTERVAL", 0)
 
 
 @pytest.fixture
@@ -101,14 +108,14 @@ class TestRequest:
         http.get(f"{BASE_URL}/status.xml", exc=TimeoutError())
         with pytest.raises(RixensConnectionError, match="Timeout"):
             await api._request("/status.xml")
-        assert http.call_count == 3
+        assert http.call_count == 2
 
     async def test_client_error_raises_connection_error(self, api, http):
         exc = aiohttp.ClientError("connection refused")
         http.get(f"{BASE_URL}/status.xml", exc=exc)
         with pytest.raises(RixensConnectionError, match="Error connecting"):
             await api._request("/status.xml")
-        assert http.call_count == 3
+        assert http.call_count == 2
 
     async def test_retry_then_success(self, api, http):
         url = f"{BASE_URL}/status.xml"
@@ -130,6 +137,78 @@ class TestRequest:
         http.get(f"{BASE_URL}/status.xml", status=500)
         with pytest.raises(RixensConnectionError):
             await api._request("/status.xml")
+
+    async def test_status_poll_is_not_retried(self, api, http):
+        http.get(f"{BASE_URL}/status.xml", exc=TimeoutError())
+        with pytest.raises(RixensConnectionError):
+            await api.get_status()
+        assert http.call_count == 1
+
+    async def test_command_is_retried_once(self, api, http):
+        http.get(f"{BASE_URL}/interface.cgi?act=5&val=1", exc=TimeoutError())
+        with pytest.raises(RixensConnectionError):
+            await api.send_command(Command.FURNACE, True)
+        assert http.call_count == 2
+
+
+class TestRequestPacing:
+    """Requests go one at a time, MIN_REQUEST_INTERVAL apart."""
+
+    @pytest.fixture(autouse=True)
+    def no_request_spacing(self, monkeypatch: pytest.MonkeyPatch) -> list[float]:
+        """Restore real spacing and record sleeps instead of waiting."""
+        monkeypatch.setattr(api_module, "MIN_REQUEST_INTERVAL", 1.0)
+        clock = [100.0]
+        sleeps: list[float] = []
+
+        async def fake_sleep(delay: float) -> None:
+            sleeps.append(delay)
+            clock[0] += delay
+
+        monkeypatch.setattr(api_module.time, "monotonic", lambda: clock[0])
+        monkeypatch.setattr(api_module.asyncio, "sleep", fake_sleep)
+        return sleeps
+
+    async def test_first_request_does_not_wait(self, api, http, no_request_spacing):
+        http.get(f"{BASE_URL}/status.xml", text=SAMPLE_XML)
+        await api.get_status()
+        assert no_request_spacing == []
+
+    async def test_back_to_back_commands_are_spaced(
+        self, api, http, no_request_spacing
+    ):
+        http.get(f"{BASE_URL}/interface.cgi?act=8&val=1", text="OK")
+        http.get(f"{BASE_URL}/interface.cgi?act=2&val=999", text="OK")
+        await api.send_command(Command.FAN_STATE, True)
+        await api.send_command(Command.FAN_SPEED, 999)
+        assert no_request_spacing == [1.0]
+
+    async def test_retry_waits_for_interval(self, api, http, no_request_spacing):
+        url = f"{BASE_URL}/interface.cgi?act=5&val=1"
+        http.get(
+            url, side_effect=_in_order(url, {"exc": TimeoutError()}, {"text": "OK"})
+        )
+        await api.send_command(Command.FURNACE, True)
+        assert http.call_count == 2
+        assert no_request_spacing == [1.0]
+
+    async def test_concurrent_requests_do_not_overlap(self, api, http):
+        in_flight = 0
+        peak = 0
+        url = f"{BASE_URL}/status.xml"
+
+        async def side_effect(method, _url, _data):
+            nonlocal in_flight, peak
+            in_flight += 1
+            peak = max(peak, in_flight)
+            await asyncio.sleep(0)
+            in_flight -= 1
+            return AiohttpClientMockResponse(method, URL(url), text=SAMPLE_XML)
+
+        http.get(url, side_effect=side_effect)
+        await asyncio.gather(api.get_status(), api.get_status(), api.get_status())
+        assert http.call_count == 3
+        assert peak == 1
 
 
 # ---------------------------------------------------------------------------

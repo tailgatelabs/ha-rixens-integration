@@ -14,6 +14,7 @@ import asyncio
 import logging
 import math
 import re
+import time
 from dataclasses import dataclass
 from enum import IntEnum
 from xml.etree import ElementTree
@@ -25,8 +26,13 @@ from .const import DEVICE_FAN_AUTO, FAN_SPEED_AUTO
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 10
-MAX_RETRIES = 3
-RETRY_DELAY = 1  # seconds
+# Attempts for a command. Status polls are not retried: the coordinator keeps
+# the last data through missed polls, and retrying only adds load to a device
+# that is already struggling to answer.
+MAX_COMMAND_ATTEMPTS = 2
+# The docs ask for no more than 1 request per second. Requests are sent one at
+# a time and each starts at least this long after the previous one finished.
+MIN_REQUEST_INTERVAL = 1.0  # seconds
 
 # Raw values the device reports when no cabin sensor is connected
 NO_SENSOR_TEMP = -9990
@@ -172,59 +178,69 @@ class RixensApi:
         self._port = port
         self._session = session
         self._base_url = f"http://{host}:{port}" if port != 80 else f"http://{host}"
+        self._lock = asyncio.Lock()
+        self._last_request_end = -math.inf
 
     async def _request(self, path: str, retry: bool = True) -> str:
-        """Make a request to the device with retry logic.
+        """Make a request to the device, one at a time and spaced out.
 
         Args:
             path: API path to request
-            retry: Whether to retry on failure (default: True)
+            retry: Whether to retry once on failure (default: True)
 
         Returns:
             Response text from the device
 
         Raises:
-            RixensConnectionError: If all retries fail
+            RixensConnectionError: If every attempt fails
         """
         url = f"{self._base_url}{path}"
-        retries = MAX_RETRIES if retry else 1
+        attempts = MAX_COMMAND_ATTEMPTS if retry else 1
 
-        for attempt in range(retries):
-            try:
-                async with asyncio.timeout(DEFAULT_TIMEOUT):
-                    async with self._session.get(url) as response:
-                        response.raise_for_status()
-                        if attempt > 0:
-                            _LOGGER.info(
-                                "Successfully connected to %s after %d retry attempt(s)",
-                                url,
-                                attempt,
-                            )
-                        return await response.text()
-            except (TimeoutError, aiohttp.ClientError) as err:
-                if isinstance(err, TimeoutError):
-                    error_msg = f"Timeout connecting to {url}"
-                else:
-                    error_msg = f"Error connecting to {url}: {err}"
+        async with self._lock:
+            for attempt in range(attempts):
+                await self._wait_for_turn()
+                try:
+                    async with asyncio.timeout(DEFAULT_TIMEOUT):
+                        async with self._session.get(url) as response:
+                            response.raise_for_status()
+                            text = await response.text()
+                except (TimeoutError, aiohttp.ClientError) as err:
+                    if isinstance(err, TimeoutError):
+                        error_msg = f"Timeout connecting to {url}"
+                    else:
+                        error_msg = f"Error connecting to {url}: {err}"
 
-                if attempt < retries - 1:
-                    delay = RETRY_DELAY * (attempt + 1)
-                    _LOGGER.warning(
-                        "%s (attempt %d/%d), retrying in %ds...",
-                        error_msg,
-                        attempt + 1,
-                        retries,
-                        delay,
+                    if attempt < attempts - 1:
+                        _LOGGER.warning(
+                            "%s (attempt %d/%d), retrying",
+                            error_msg,
+                            attempt + 1,
+                            attempts,
+                        )
+                        continue
+
+                    raise RixensConnectionError(
+                        f"{error_msg} after {attempts} attempt(s)"
+                    ) from err
+                finally:
+                    self._last_request_end = time.monotonic()
+
+                if attempt > 0:
+                    _LOGGER.info(
+                        "Successfully connected to %s after %d retry attempt(s)",
+                        url,
+                        attempt,
                     )
-                    await asyncio.sleep(delay)
-                    continue
-
-                _LOGGER.error("%s after %d attempts", error_msg, retries)
-                raise RixensConnectionError(
-                    f"{error_msg} after {retries} attempts"
-                ) from err
+                return text
 
         raise AssertionError("unreachable")  # pragma: no cover
+
+    async def _wait_for_turn(self) -> None:
+        """Sleep until MIN_REQUEST_INTERVAL has passed since the last request."""
+        delay = self._last_request_end + MIN_REQUEST_INTERVAL - time.monotonic()
+        if delay > 0:
+            await asyncio.sleep(delay)
 
     async def test_connection(self) -> bool:
         """Test the connection to the device."""
@@ -236,7 +252,7 @@ class RixensApi:
 
     async def get_status(self) -> RixensData:
         """Get the current status from the device (GET /status.xml)."""
-        response = await self._request("/status.xml")
+        response = await self._request("/status.xml", retry=False)
         return self._parse_status(response)
 
     def _parse_status(self, xml_text: str) -> RixensData:
